@@ -1,6 +1,17 @@
 #include "../include/bitboard.h"
 #include <stdio.h>
 
+U64 knight_attacks[64];
+U64 king_attacks[64];
+
+void init_leapers() {
+    // initialize king and knight move arrays
+    for (int square = 0; square < 64; square++) {
+        U64 bitboard = 0ULL;
+        set_bit(bitboard, square);
+    }
+}
+
 void print_bitboard(U64 bitboard) {
     for (int rank = 7; rank >= 0; rank--) {
         printf(" %d  ", rank + 1); // print rank number
