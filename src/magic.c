@@ -1,44 +1,10 @@
 #include "../include/magic.h"
 #include "../include/bitboard.h"
+#include <stdio.h>
 
-// pre computed magic numbers (computed by someone else)
-const U64 rook_magics[64] = {
-    0x8a80104000800020ULL, 0x140002000100040ULL, 0x2801880a0017001ULL, 0x100081001000420ULL,
-    0x200020010080420ULL, 0x3001c0002010008ULL, 0x8480008002000100ULL, 0x2080088004402900ULL,
-    0x800098204000ULL, 0x2024401000200040ULL, 0x100802000801000ULL, 0x120800800801000ULL,
-    0x208808088000400ULL, 0x2802200800400ULL, 0x2200800100020080ULL, 0x801000060821100ULL,
-    0x80044006422000ULL, 0x100808020004000ULL, 0x12108a0010204200ULL, 0x140848010000802ULL,
-    0x481828014002800ULL, 0x8094004002004100ULL, 0x4010040010010802ULL, 0x200040005040080ULL,
-    0x800100122000000ULL, 0x100800140020000ULL, 0x800802002200800ULL, 0x800080200500140ULL,
-    0x18801111400400ULL, 0x10010400414000ULL, 0x2008101008120ULL, 0x20484080120180ULL,
-    0x444004414101100ULL, 0x800200102142200ULL, 0x804000200106800ULL, 0x10042420082040ULL,
-    0x8114011244000ULL, 0x884000084010ULL, 0x18001180410084ULL, 0x1102002201081ULL,
-    0x80040008004010ULL, 0x408024401018ULL, 0x2112004084040ULL, 0x4104008126300ULL,
-    0x10040100042010ULL, 0x80424000820ULL, 0x242404050201ULL, 0x400212001088ULL,
-    0x1208022020202ULL, 0x80004000808ULL, 0x140011400800ULL, 0x820104000800100ULL,
-    0x81010140120400ULL, 0x2000102422040ULL, 0x8400420210ULL, 0x100802100810ULL,
-    0x8000820014010ULL, 0x20000201040400ULL, 0x1000810102100ULL, 0x110081008000ULL,
-    0x102021141ULL, 0x400208110000ULL, 0x11422041010ULL, 0x280422110200ULL
-};
-
-const U64 bishop_magics[64] = {
-    0x40040844404084ULL, 0x2004208a004208ULL, 0x10190041080202ULL, 0x108060845042010ULL,
-    0x581104180800210ULL, 0x211208044620004ULL, 0x41105040830020ULL, 0x108062022081210ULL,
-    0x40080420080080ULL, 0x2000200200804ULL, 0x800400804004ULL, 0x2000000100400ULL,
-    0x20020020080ULL, 0x41000214040ULL, 0x10041004201ULL, 0x441020020020ULL,
-    0x40200200800ULL, 0x40202002004ULL, 0x100008002008ULL, 0x204000200020ULL,
-    0x200040010001ULL, 0x201000100020ULL, 0x204020400ULL, 0x8001000200ULL,
-    0x40008402004ULL, 0x4002008000ULL, 0x8100010001ULL, 0x800100020ULL,
-    0x40000100200ULL, 0x8000002001ULL, 0x20010202ULL, 0x8000000400ULL,
-    0x20002011ULL, 0x10000002ULL, 0x2000200100ULL, 0x400001020ULL,
-    0x80020040ULL, 0x100040010ULL, 0x102002010ULL, 0x80002000ULL,
-    0x40004ULL, 0x800400ULL, 0x40008000ULL, 0x100002ULL,
-    0x8000100ULL, 0x20008ULL, 0x210001ULL, 0x800400020ULL,
-    0x40020ULL, 0x2002010ULL, 0x200020010ULL, 0x8004000ULL,
-    0x40002004ULL, 0x10000008ULL, 0x20008020ULL, 0x1001ULL,
-    0x80002ULL, 0x1002ULL, 0x2100ULL, 0x4008ULL,
-    0x20001ULL, 0x8ULL, 0x40002001000ULL, 0x4000ULL
-};
+// magic numbers
+U64 rook_magics[64];
+U64 bishop_magics[64];
 
 // lookup tables
 U64 rook_attacks[64][4096];
@@ -46,12 +12,101 @@ U64 bishop_attacks[64][512];
 U64 rook_masks[64];
 U64 bishop_masks[64];
 
+// ------ magic numbers computing --------
+
+// random 64 bit number generating:
+
+// A deterministic PRNG state so the engine boots the exact same way every time
+unsigned int random_state = 1804289383;
+
+// 32-bit XorShift
+unsigned int get_random_U32() {
+    unsigned int number = random_state;
+    number ^= number << 13;
+    number ^= number >> 17;
+    number ^= number << 5;
+    random_state = number;
+    return number;
+}
+
+// stitch 4 16 bit chunks into a 64 bit integer
+U64 get_random_U64() {
+    U64 n1 = (U64)(get_random_U32()) & 0xFFFF;
+    U64 n2 = (U64)(get_random_U32()) & 0xFFFF;
+    U64 n3 = (U64)(get_random_U32()) & 0xFFFF;
+    U64 n4 = (U64)(get_random_U32()) & 0xFFFF;
+    return n1 | (n2 << 16) | (n3 << 32) | (n4 << 48);
+}
+
+U64 get_magic_candidate() {
+    // bitwise and 3 times to reduce number of 1s
+    return get_random_U64() & get_random_U64() & get_random_U64(); 
+}
+
+
+U64 find_magic_number(int square, int relevant_bits, int is_bishop) {
+    U64 occupancies[4096];
+    U64 attacks[4096];
+    U64 used_attacks[4096];
+
+    U64 attack_mask = is_bishop ? mask_bishop_attacks(square) : mask_rook_attacks(square);
+    int occupancy_indices = 1 << relevant_bits;
+
+    for (int index = 0; index < occupancy_indices; index++) {
+        occupancies[index] = set_occupancy(index, relevant_bits, attack_mask);
+        attacks[index] = is_bishop ? bishop_attacks_cast(square, occupancies[index]) : rook_attacks_cast(square, occupancies[index]);
+    }
+
+    for (int k = 0; k < 100000000; k++) {
+        U64 candidate = get_magic_candidate();
+        if (__builtin_popcountll((attack_mask * candidate) & 0xFF00000000000000ULL) < 6) {
+            continue;
+        }
+
+        // clear used_attacks array
+        for (int i = 0; i < 4096; i++) {
+            used_attacks[i] = 0ULL;
+        }
+
+        int fail = 0;
+
+        // Test the magic number against every permutation
+        for (int index = 0; index < occupancy_indices; index++) {
+            // The magic hashing formula!
+            int magic_index = (occupancies[index] * candidate) >> (64 - relevant_bits);
+
+            // If the slot is completely empty, claim it
+            if (used_attacks[magic_index] == 0ULL) {
+                used_attacks[magic_index] = attacks[index];
+            } 
+            // If the slot is taken, check if it's a destructive collision
+            else if (used_attacks[magic_index] != attacks[index]) {
+                fail = 1;
+                break;
+            }
+        }
+
+        // If it didn't fail, we found a perfect magic number!
+        if (!fail) {
+            return candidate;
+        }
+
+    }
+
+    printf("Failed to find Magic Number for Square %d\n", square);
+    return 0ULL;
+}
+
+
+// ------ lookup tables initializer for sliders ------
 // runs once when the engine boots up to build the tables
 void init_sliders() {
     for (int square = 0; square < 64; square++) {
         rook_masks[square] = mask_rook_attacks(square);
         int r_bits = __builtin_popcountll(rook_masks[square]);
         int r_perm = (1 << r_bits); // 2^r_bits;
+
+        rook_magics[square] = find_magic_number(square, r_bits, 0);
 
         for (int i = 0; i < r_perm; i++) {
             U64 occ = set_occupancy(i, r_bits, rook_masks[square]);
@@ -66,6 +121,8 @@ void init_sliders() {
         int b_bits = __builtin_popcountll(bishop_masks[square]);
         int b_perm = (1 << b_bits); // 2^b_bits;
 
+        bishop_magics[square] = find_magic_number(square, b_bits, 1);
+
         for (int i = 0; i < b_perm; i++) {
             U64 occ = set_occupancy(i, b_bits, bishop_masks[square]);
 
@@ -78,29 +135,30 @@ void init_sliders() {
 }
 
 
-// super fast O(1) table lookups
+// ------ super fast O(1) table lookups ------
+
 U64 get_rook_attacks(int square, U64 occupancy) {
-    /*
+
     U64 relevant_occupancy = occupancy & rook_masks[square];
 
     int r_bits = __builtin_popcountll(rook_masks[square]);
     int magic_index = (relevant_occupancy * rook_magics[square]) >> (64 - r_bits);
 
     return rook_attacks[square][magic_index];
-    */
-   return rook_attacks_cast(square, occupancy);
+
+    //return rook_attacks_cast(square, occupancy);
 }
 
 U64 get_bishop_attacks(int square, U64 occupancy) {
-    /*
+    
     U64 relevant_occupancy = occupancy & bishop_masks[square];
 
     int b_bits = __builtin_popcountll(bishop_masks[square]);
     int magic_index = (relevant_occupancy * bishop_magics[square]) >> (64 - b_bits);
     
     return bishop_attacks[square][magic_index];
-    */
-   return bishop_attacks_cast(square, occupancy);
+    
+    //return bishop_attacks_cast(square, occupancy);
 }
 
 U64 get_queen_attacks(int square, U64 occupancy) {
