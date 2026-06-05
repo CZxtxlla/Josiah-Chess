@@ -14,7 +14,7 @@
 */
 
 typedef struct {
-    int moves[256];
+    int moves[256]; // only needs to be size 256 since we are never gonna gave more moves than that from a single position
     int count;
 } MoveList;
 
