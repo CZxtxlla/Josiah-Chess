@@ -3,6 +3,47 @@
 #include "../include/movegen.h"
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+
+void parse_go(char* command, Position* pos) {
+    int depth = 64; // massive depth so the clock breaks
+    int wtime = -1, btime = -1, winc = 0, binc = 0, movestogo = 30;
+
+    char* ptr;
+    
+    // Extract values
+    if ((ptr = strstr(command, "wtime"))) wtime = atoi(ptr + 6);
+    if ((ptr = strstr(command, "btime"))) btime = atoi(ptr + 6);
+    if ((ptr = strstr(command, "winc"))) winc = atoi(ptr + 5);
+    if ((ptr = strstr(command, "binc"))) binc = atoi(ptr + 5);
+    if ((ptr = strstr(command, "movestogo"))) movestogo = atoi(ptr + 10);
+    
+    // If GUI specifically asks for fixed depth, do it
+    if ((ptr = strstr(command, "depth"))) depth = atoi(ptr + 6); 
+
+    // Determine whose clock we are looking at
+    int time_left = (pos->side == WHITE) ? wtime : btime;
+    int increment = (pos->side == WHITE) ? winc : binc;
+
+    if (time_left != -1) {
+        // divide remaining time by the moves we think are left, plus half the increment
+        search_time_limit = (time_left / movestogo) + (increment / 2);
+        
+        // Safety Buffer, 50 ms
+        if (search_time_limit > time_left - 50) {
+            search_time_limit = time_left - 50;
+        }
+        
+        // If we are literally at 0, give the engine 10ms to find ANY move
+        if (search_time_limit <= 0) search_time_limit = 10;
+    } else {
+        // If no time was sent, just think for 2 seconds
+        search_time_limit = 2000; 
+    }
+
+    // iterative deepening
+    search_position(pos, depth);
+}
 
 
 int parse_move(char* move_string, Position* pos) {
@@ -115,7 +156,7 @@ void uci_loop(Position* pos) {
             parse_position(line, pos);
         } 
         else if (strncmp(line, "go", 2) == 0) {
-            search_position(pos, 5); 
+            parse_go(line, pos);
         } 
         else if (strcmp(line, "quit") == 0) {
             break;

@@ -3,12 +3,100 @@
 #include "../include/movegen.h"
 #include "../include/position.h"
 #include <stdio.h>
+#include <sys/time.h>
 
+// used for iterative deepening
+int search_time_limit = 2000; // Stop searching after 2000ms (2 seconds)
+long long search_start_time = 0;
+int time_over = 0;
+
+// used for negamax
 int best_move = 0;
 long long nodes_evaluated = 0;
 
+// helper to get current time in ms for iterative deepening
+long long get_time_ms() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (tv.tv_sec * 1000LL) + (tv.tv_usec / 1000LL);
+}
+
+
+// helper to get piecetype at a position
+int get_piece_at(Position* pos, int square) {
+    for (int piece_type = P; piece_type <= k; piece_type++) {
+        if (pos->pieces[piece_type] & (1ULL << square)) {
+            return piece_type;
+        }
+    }
+    return -1; // empty square
+}
+
+
+int score_move(Position* pos, int move) {
+    if (get_move_promoted(move)) {
+        return 9000; // promotions really good
+    }
+
+    int from = get_move_from(move);
+    int to = get_move_to(move);
+
+    int attacker = get_piece_at(pos, from);
+    int victim = get_piece_at(pos, to);
+
+    // en passant, victim is pawn
+    if (get_move_ep(move)) {
+        victim = P; 
+    }
+
+    // if there is a victim
+    if (victim != -1) {
+        int attacker_val = piece_values[attacker];
+        int victim_val = piece_values[victim];
+
+        return victim_val - attacker_val + 1000;
+    }
+
+    return 0;
+}
+
+void order_moves(Position* pos, MoveList* list) {
+    int scores[256];
+
+    // initialize scores array
+    for (int i = 0; i < list->count; i++) {
+        scores[i] = score_move(pos, list->moves[i]);
+    }
+
+    for (int i = 0; i < list->count - 1; i++) {
+        int max_idx = i;
+        for (int j = i + 1; j < list->count; j++) {
+            if (scores[j] > scores[max_idx]) {
+                max_idx = j;
+            }
+        }
+        int temp = scores[max_idx];
+        scores[max_idx] = scores[i];
+        scores[i] = temp;
+
+        int temp_move = list->moves[max_idx];
+        list->moves[max_idx] = list->moves[i];
+        list->moves[i] = temp_move;
+    }
+}
+
 int quiescence(Position* pos, int alpha, int beta) {
     nodes_evaluated++;
+
+    // Every 2048 nodes, check if we are out of time
+    if ((nodes_evaluated % 2048) == 0) {
+        if (get_time_ms() - search_start_time >= search_time_limit) {
+            time_over = 1;
+        }
+    }
+
+    // If time is up, return immediately
+    if (time_over) return 0;
 
     int current_score = evaluate(pos);
 
@@ -23,12 +111,14 @@ int quiescence(Position* pos, int alpha, int beta) {
     MoveList list;
     generate_moves(pos, &list);
 
+    order_moves(pos, &list);
+
     for (int i = 0; i < list.count; i++) {
         int move = list.moves[i];
         int to_sq = get_move_to(move);
 
         int is_capture = 0;
-        if (pos->occupancy[pos->side ^ 1] & (1 << to_sq)) {
+        if (pos->occupancy[pos->side ^ 1] & (1ULL << to_sq)) {
             is_capture = 1;
         } else if (get_move_ep(move)) {
             is_capture = 1;
@@ -39,6 +129,8 @@ int quiescence(Position* pos, int alpha, int beta) {
 
             if (make_move(&next_state, move)) {
                 int score = -quiescence(&next_state, -beta, -alpha);
+
+                if (time_over) return 0;
 
                 if (score >= beta) {
                     return beta;
@@ -54,6 +146,18 @@ int quiescence(Position* pos, int alpha, int beta) {
 
 
 int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
+    // Every 2048 nodes, check if we are out of time
+    if ((nodes_evaluated % 2048) == 0) {
+        if (get_time_ms() - search_start_time >= search_time_limit) {
+            time_over = 1;
+        }
+    }
+
+    // If time is up, return immediately
+    if (time_over) {
+        return 0;
+    }
+
     // base case
     if (depth == 0) {
         return quiescence(pos, alpha, beta);
@@ -61,6 +165,8 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
 
     MoveList list;
     generate_moves(pos, &list); // get all moves
+
+    order_moves(pos, &list);
 
     int legal_moves = 0;
 
@@ -72,6 +178,8 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
             legal_moves++;
 
             int score = -negamax(&next_state, depth - 1, distance + 1, -beta, -alpha);
+
+            if (time_over) return 0;
 
             if (score > alpha) {
                 alpha = score;
@@ -108,17 +216,29 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
 
 
 void search_position(Position* pos, int depth) {
+    search_start_time = get_time_ms();
+    time_over = 0;
+
+    int best_move_so_far = 0;
     best_move = 0;
     nodes_evaluated = 0;
 
-    int final_score = negamax(pos, depth, 0, -50000, 50000);
+    for (int current_depth = 1; current_depth <= depth; current_depth++) {
+        int final_score = negamax(pos, current_depth, 0, -50000, 50000);
+
+        if (time_over) {
+            break;
+        }
+
+        best_move_so_far = best_move;
+
+        long long duration = get_time_ms() - search_start_time;
+
+        printf("info depth %d score cp %d nodes %lld\n", current_depth, final_score, nodes_evaluated);
+    }
 
     // Output the results in the official UCI format
-    printf("info depth %d score cp %d nodes %lld\n", depth, final_score, nodes_evaluated);
     printf("bestmove ");
-    print_move(best_move);
+    print_move(best_move_so_far);
     printf("\n");
-
-
-
 }
