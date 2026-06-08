@@ -4,6 +4,9 @@
 #include "position.h"
 #include "movegen.h"
 
+extern int killer_moves[2][64];
+extern int history_moves[2][64][64];
+
 extern int search_time_limit;
 extern int time_over;
 extern long long nodes_evaluated;
@@ -13,10 +16,10 @@ extern int best_move;
 long long get_time_ms();
 
 // helper to give a move a very quick preliminary score value
-int score_move(Position* pos, int move);
+int score_move(Position* pos, int move, int distance);
 
 // sort the moves in the list to be ordered according to their preliminary score
-void order_moves(Position* pos, MoveList* moves);
+void order_moves(Position* pos, MoveList* moves, int distance);
 
 // recursively perform alpha beta pruning 
 int negamax(Position* pos, int depth, int distance, int alpha, int beta); 

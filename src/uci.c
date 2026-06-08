@@ -221,6 +221,9 @@ void run_benchmark(char* command, Position* pos) {
     int best_move_so_far = 0;
     long long total_nodes = 0;
 
+    memset(killer_moves, 0, sizeof(killer_moves));
+    memset(history_moves, 0, sizeof(history_moves));
+
     // run iterative deepening loop
     for (int current_depth = 1; current_depth <= target_depth; current_depth++) {
         long long nodes_before = nodes_evaluated;

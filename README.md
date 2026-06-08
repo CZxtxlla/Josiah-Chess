@@ -54,13 +54,13 @@ thus in a 64-bit bitboard, the lowest order bit represents the A1 square and the
 All moves are encoded as a 32 bit integer as follows:
 
 ```
-  Move representation in a single 32-bit integer:
-  0000 0000 0000 0000 0000 0011 1111 -> From square (Bits 0-5)
-  0000 0000 0000 0000 1111 1100 0000 -> To square (Bits 6-11)
-  0000 0000 0000 1111 0000 0000 0000 -> Promoted piece flags (Bits 12-15)
-  0000 0000 0001 0000 0000 0000 0000 -> En Passant flag (Bit 16)
-  0000 0000 0010 0000 0000 0000 0000 -> Double Pawn Push flag (Bit 17)
-  0000 0000 0100 0000 0000 0000 0000 -> Castling flag (Bit 18)
+Move representation in a single 32-bit integer:
+0000 0000 0000 0000 0000 0011 1111 -> From square (Bits 0-5)
+0000 0000 0000 0000 1111 1100 0000 -> To square (Bits 6-11)
+0000 0000 0000 1111 0000 0000 0000 -> Promoted piece flags (Bits 12-15)
+0000 0000 0001 0000 0000 0000 0000 -> En Passant flag (Bit 16)
+0000 0000 0010 0000 0000 0000 0000 -> Double Pawn Push flag (Bit 17)
+0000 0000 0100 0000 0000 0000 0000 -> Castling flag (Bit 18)
 ```
 
 The function `void generate_moves(const Position* pos, MoveList* list)` takes in a position, and a list, and populates the list with all the possible moves from the given position. Note in a realistic chess game, this will never exceed 256 so we can fix the moveList array size at 256.
@@ -154,7 +154,7 @@ void init_leapers() {
 }
 ```
 
-Bishops and Rooks are different than the previous pieces, their movement depends on if there is a piece in blocking their path. If we were to store the moves for every square, for every possible occupancywe would have to store an array `attacks[64][2^64]`, which is much too large. Taking the example of a rook, first notice that the rook doesn't care about the whole board, only the occupancy in the same file and rank as it. That reduces the occupancies we care about to 12. Thus we only care about $2^{12}$ possible blocker configurations, down from $2^{64}$. (This number is $2^9$ for the bishop).
+Bishops and Rooks are different than the previous pieces, as their movement depends on if there is a piece in blocking their path. If we were to store the moves for every square, for every possible occupancywe would have to store an array `attacks[64][2^64]`, which is much too large. Taking the example of a rook, first notice that the rook doesn't care about the whole board, only the occupancy in the same file and rank as it. That reduces the occupancies we care about to 12. Thus we only care about $2^{12}$ possible blocker configurations, down from $2^{64}$. (This number is $2^9$ for the bishop).
 
 Now, if we get the mask of the rook for the specific square it is on, and AND it with the occupancy bitboard, we end up with a very sparse 64 bit integer. We need this integer to translate 1 to 1 with an index in the range $0$ to $2^{12}$. This is where the magic number comes in, and multiplying this masked occupancy with this special number, and shifting down by $2^{(64 - 12)}$, we obtain a unique index between $0$ and $2 ^{12} - 1$. Thus if we precompute the required bitboards we can reference them at any time using this magic number multiplication followed by a bit shift.
 
