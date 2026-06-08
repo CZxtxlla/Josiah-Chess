@@ -3,6 +3,7 @@
 #include "../include/bitboard.h"
 #include "../include/magic.h"
 #include "../include/movegen.h"
+#include "../include/zobrist.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -38,6 +39,8 @@ char piece_to_char(int piece) {
 void parse_fen(Position* pos, const char* fen) {
     memset(pos, 0, sizeof(Position)); // fully reset pos structure
     pos->en_passant = -1;
+
+    /* compute zobrist hash after the board has been populated */
 
     const char* ptr = fen;
 
@@ -106,6 +109,8 @@ void parse_fen(Position* pos, const char* fen) {
         pos->occupancy[BLACK] |= pos->pieces[piece];
     }
     pos->occupancy[BOTH] = pos->occupancy[BLACK] | pos->occupancy[WHITE];
+
+    pos->hash_key = generate_hash(pos);
 }
 
 void print_board(const Position* pos) {
@@ -190,6 +195,12 @@ int make_move(Position* pos, int move) {
     int is_double = get_move_double(move);
     int is_castling = get_move_castle(move);
 
+    // strip the old state (en passant file and castling rights)
+    if (pos->en_passant != -1) {
+        pos->hash_key ^= en_passant_keys[pos->en_passant % 8];
+    }
+    pos->hash_key ^= castling_keys[pos->castling_rights];
+
     // find the moving piece
     int moving_piece = -1;
     for (int p_type = P; p_type <= k; p_type++) {
@@ -199,13 +210,28 @@ int make_move(Position* pos, int move) {
         }
     }
 
-    // If we land on a square, completely clear it from all piece bitboards
+    // find the captured piece and remove it from the bitboard
+    int captured_piece = -1;
     for (int p_type = P; p_type <= k; p_type++) {
-        pop_bit(pos->pieces[p_type], to_sq);
+        if (get_bit(pos->pieces[p_type], to_sq)) {
+            captured_piece = p_type;
+            pop_bit(pos->pieces[captured_piece], to_sq);
+            break; // Found the victim, break out
+        }
     }
+
+    // hash out the captured piece
+    if (captured_piece != -1) {
+        pos->hash_key ^= piece_keys[captured_piece][to_sq];
+    }
+
     // move the piece
     pop_bit(pos->pieces[moving_piece], from_sq);
     set_bit(pos->pieces[moving_piece], to_sq);
+
+    // move the hash piece
+    pos->hash_key ^= piece_keys[moving_piece][from_sq];
+    pos->hash_key ^= piece_keys[moving_piece][to_sq];
 
     // special cases
     if (is_ep) {
@@ -213,6 +239,9 @@ int make_move(Position* pos, int move) {
         int captured_pawn_sq = (pos->side == WHITE) ? (to_sq - 8) : (to_sq + 8);
         int captured_pawn = (pos->side == WHITE) ? p : P;
         pop_bit(pos->pieces[captured_pawn], captured_pawn_sq); 
+
+        // hash out the en passant capture
+        pos->hash_key ^= piece_keys[captured_pawn][captured_pawn_sq];
 
     } else if (promoted) {
         // handle promotion: remove pawn of moving side, add promoted piece
@@ -223,24 +252,36 @@ int make_move(Position* pos, int move) {
         }
         set_bit(pos->pieces[promoted], to_sq);
 
+        int pawn_type = (pos->side == WHITE) ? P : p;
+        pos->hash_key ^= piece_keys[pawn_type][to_sq]; // hash out the moved pawn
+        pos->hash_key ^= piece_keys[promoted][to_sq];  // hash in the promoted piece
+
     } else if (is_castling) {
         // handle castle
         if (to_sq == G1) {
             // white kingside
             pop_bit(pos->pieces[R], H1);
             set_bit(pos->pieces[R], F1);
+            pos->hash_key ^= piece_keys[R][H1]; 
+            pos->hash_key ^= piece_keys[R][F1];
         } else if (to_sq == C1) {
             // white queenside
             pop_bit(pos->pieces[R], A1); 
             set_bit(pos->pieces[R], D1);
+            pos->hash_key ^= piece_keys[R][A1]; 
+            pos->hash_key ^= piece_keys[R][D1];
         } else if (to_sq == G8) {
             // black kingside
             pop_bit(pos->pieces[r], H8); 
             set_bit(pos->pieces[r], F8);
+            pos->hash_key ^= piece_keys[R][H8]; 
+            pos->hash_key ^= piece_keys[R][F8];
         } else if (to_sq == C8) {
             // black queenside
             pop_bit(pos->pieces[r], A8); 
             set_bit(pos->pieces[r], D8);
+            pos->hash_key ^= piece_keys[R][A8]; 
+            pos->hash_key ^= piece_keys[R][D8];
         }
     }
 
@@ -253,8 +294,14 @@ int make_move(Position* pos, int move) {
     pos->castling_rights &= castling_rights_update[from_sq];
     pos->castling_rights &= castling_rights_update[to_sq];
 
-    // recalculate occupancy
+    // hash in the new state (en passant square and castling rights)
+    if (pos->en_passant != -1) {
+        pos->hash_key ^= en_passant_keys[pos->en_passant % 8];
+    }
+    pos->hash_key ^= castling_keys[pos->castling_rights];
+    pos->hash_key ^= side_key; // flip whose turn it is in the hash
 
+    // recalculate occupancy
     pos->occupancy[WHITE] = 0ULL;
     pos->occupancy[BLACK] = 0ULL;
     

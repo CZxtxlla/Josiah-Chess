@@ -16,10 +16,10 @@ extern int best_move;
 long long get_time_ms();
 
 // helper to give a move a very quick preliminary score value
-int score_move(Position* pos, int move, int distance);
+int score_move(Position* pos, int move, int distance, int hash_move);
 
 // sort the moves in the list to be ordered according to their preliminary score
-void order_moves(Position* pos, MoveList* moves, int distance);
+void order_moves(Position* pos, MoveList* moves, int distance, int hash_move);
 
 // recursively perform alpha beta pruning 
 int negamax(Position* pos, int depth, int distance, int alpha, int beta); 

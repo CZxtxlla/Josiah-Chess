@@ -2,6 +2,7 @@
 #include "../include/evaluate.h"
 #include "../include/movegen.h"
 #include "../include/position.h"
+#include "../include/zobrist.h"
 #include <stdio.h>
 #include <sys/time.h>
 #include <string.h>
@@ -35,7 +36,11 @@ int get_piece_at(Position* pos, int square) {
     return -1; // empty square
 }
 
-int score_move(Position* pos, int move, int distance) {
+int score_move(Position* pos, int move, int distance, int hash_move) {
+    if (move == hash_move) {
+        return 40000; // hashe table moves are really good
+    }
+
     if (get_move_promoted(move)) {
         return 30000; // promotions really good
     }
@@ -67,12 +72,12 @@ int score_move(Position* pos, int move, int distance) {
     return history_moves[pos->side][from][to];
 }
 
-void order_moves(Position* pos, MoveList* list, int distance) {
+void order_moves(Position* pos, MoveList* list, int distance, int hash_move) {
     int scores[256];
 
     // initialize scores array
     for (int i = 0; i < list->count; i++) {
-        scores[i] = score_move(pos, list->moves[i], distance);
+        scores[i] = score_move(pos, list->moves[i], distance, hash_move);
     }
 
     for (int i = 0; i < list->count - 1; i++) {
@@ -118,7 +123,7 @@ int quiescence(Position* pos, int alpha, int beta) {
     MoveList list;
     generate_moves(pos, &list);
 
-    order_moves(pos, &list, 0); // 0 for the distance as a dummy since the score will be overidden by the fact it's a capture
+    order_moves(pos, &list, 0, 0); // 0 for the distance as a dummy since the score will be overidden by the fact it's a capture
 
     for (int i = 0; i < list.count; i++) {
         int move = list.moves[i];
@@ -169,10 +174,26 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
         return quiescence(pos, alpha, beta);
     }
 
+    // original alpha before changed by search
+    int old_alpha = alpha; 
+    
+    // track best move for this specific node
+    int local_best_move = 0; 
+
+    int hash_move = 0; 
+    int tt_score = 0;  
+
+    if (read_hash(pos->hash_key, depth, alpha, beta, &tt_score, &hash_move)) {
+        if (distance == 0 && hash_move != 0) {
+            best_move = hash_move;
+        }
+        return tt_score;  // perfect, cut the search
+    }
+
     MoveList list;
     generate_moves(pos, &list); // get all moves
 
-    order_moves(pos, &list, distance);
+    order_moves(pos, &list, distance, hash_move);
 
     int legal_moves = 0;
 
@@ -189,6 +210,8 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
 
             if (score > alpha) {
                 alpha = score;
+
+                local_best_move = list.moves[i]; // track locally for TT
 
                 if (distance == 0) {
                     best_move = list.moves[i];
@@ -230,6 +253,17 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
             return 0;
         }
     }
+
+    int hash_flag = HASH_EXACT;
+    if (alpha <= old_alpha) {
+        hash_flag = HASH_ALPHA; // We failed low; this score is an upper bound
+    } else if (alpha >= beta) {
+        hash_flag = HASH_BETA;  // We failed high; this score is a lower bound (cutoff)
+    }
+
+    // save this position so we never have to search it at this depth again
+    // Use the local best move for this node (may be different from the global root best_move)
+    write_hash(pos->hash_key, depth, alpha, hash_flag, local_best_move);
 
     return alpha;
 }

@@ -331,6 +331,8 @@ Finished match
 
 Mark_4 (quiescent search, basic move ordering, material & multiple piece square tables for opening/endgame evaluation function, small opening book)
 
+The following is performance against stockfish skill level 4 and 10 seconds + 0.1 time control
+
 ...      Mark4 playing White: 10 - 12 - 3  [0.460] 25
 ...      Mark4 playing Black: 8 - 15 - 2  [0.360] 25
 ...      White vs Black: 25 - 20 - 5  [0.550] 50
@@ -349,4 +351,53 @@ Player: Stockfish
    "Loss: White mates": 10
    "Win: Black mates": 12
    "Win: White mates": 15
+Finished match
+
+
+Mark_5 (quiescent search, basic move ordering, material & multiple piece square tables for opening/endgame evaluation function, small opening book, killer/history move ordering heuristics)
+
+The following is performance against stockfish skill level 4 and 10 seconds + 0.1 time control
+
+...      Mark5 playing White: 11 - 11 - 3  [0.500] 25
+...      Mark5 playing Black: 9 - 11 - 5  [0.460] 25
+...      White vs Black: 22 - 20 - 8  [0.520] 50
+Elo difference: -13.9 +/- 90.2, LOS: 37.9 %, DrawRatio: 16.0 %
+SPRT: llr 0 (0.0%), lbound -inf, ubound inf
+
+Player: Mark5
+   "Draw by 3-fold repetition": 8
+   "Loss: Black mates": 11
+   "Loss: White mates": 11
+   "Win: Black mates": 9
+   "Win: White mates": 11
+Player: Stockfish
+   "Draw by 3-fold repetition": 8
+   "Loss: Black mates": 9
+   "Loss: White mates": 11
+   "Win: Black mates": 11
+   "Win: White mates": 11
+Finished match
+
+Mark_6 (quiescent search, basic move ordering, material & multiple piece square tables for opening/endgame evaluation function, small opening book, killer/history move ordering heuristics, transposition tables)
+
+...      Mark6 playing White: 13 - 11 - 1  [0.540] 25
+...      Mark6 playing Black: 12 - 10 - 3  [0.540] 25
+...      White vs Black: 23 - 23 - 4  [0.500] 50
+Elo difference: 27.9 +/- 94.8, LOS: 72.2 %, DrawRatio: 8.0 %
+SPRT: llr 0 (0.0%), lbound -inf, ubound inf
+
+The following is performance against stockfish skill level 4 and 10 seconds + 0.1 time control
+
+Player: Mark6
+   "Draw by 3-fold repetition": 4
+   "Loss: Black mates": 11
+   "Loss: White mates": 10
+   "Win: Black mates": 12
+   "Win: White mates": 13
+Player: Stockfish
+   "Draw by 3-fold repetition": 4
+   "Loss: Black mates": 12
+   "Loss: White mates": 13
+   "Win: Black mates": 11
+   "Win: White mates": 10
 Finished match

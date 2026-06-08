@@ -21,7 +21,8 @@ typedef struct {
     int en_passant; // En passant square (-1 if there is none)
     int castling_rights; // 4 bit mask (WK | WQ | BK | BQ)
 
-
+    U64 hash_key; // used for zobrist hash of the position for transposition tables
+    
 } Position;
 
 #define START_POSITION "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
