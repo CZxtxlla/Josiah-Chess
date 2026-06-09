@@ -4,6 +4,9 @@
 #include "position.h"
 #include "movegen.h"
 
+extern U64 game_history[2048];
+extern int game_ply;
+
 extern int killer_moves[2][64];
 extern int history_moves[2][64][64];
 

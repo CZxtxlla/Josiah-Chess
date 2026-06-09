@@ -2,7 +2,11 @@
 
 A high-performance chess engine written in C utilizing bitboard representations, precomputed attack tables, and optimized move generation.
 
-## 1. Code structure
+## 1. How To Use
+
+Here I will mention requirements, etc... I will get around to it eventually once it is something I'm kind of happy with.
+
+## 2. Code structure
 
 The engine's core architecture is separated into distinct modular components:
 * `src/bitboard.c` & `src/bitboard.h` – Core bitboard manipulation utilities.
@@ -10,7 +14,7 @@ The engine's core architecture is separated into distinct modular components:
 * `src/movegen.c` & `src/movegen.h` – Legal and pseudo-legal move generation loops.
 * `src/position.c` & `src/position.h` – Board state parsing, tracking, and updates.
 
-## 2. Representing the game
+## 3. Representing the game
 
 This section goes over the code contained in src/bitboard.c, src/magic.c, src/movegen.c, src/position.c
 
@@ -238,14 +242,78 @@ U64 get_rook_attacks(int square, U64 occupancy) {
 
 Using all of this, we an thus generate all the moves from any given position in O(1) time, and this is the core of what allows the chess bot to see into the future.
 
-## 3. Chess Bot Architecture
+## 4. Chess Bot Architecture
 
 ### Negamax & Alpha Beta Pruning
-At its core the chess bot is an implementation of alpha beta pruning minimax. The variant implemented here is negamax, but that is just a small simplification of minimax. It relies on the principle that min(a, b) = -max(-a, -b).
+At its core the chess bot is an implementation of alpha beta pruning minimax. The variant implemented here is negamax, but that is just a small simplification of minimax. It relies on the principle that min(a, b) = -max(-a, -b). 
 
-(I will come back to this later...)
+### Evaluation Function
+The evaluation function as it is now is very b
 
-## 4. Results
+### Quiescence
+
+### Move Ordering
+The goal of move ordering is to premeptively sort the moves before being visited in the alpha beta search tree such that the best looking moves are visited first, allowing for much more pruning of the search tree. Obviously we can't sort the moves by evaluation without actually performing the evaluation, but we can kind of guess what are good moves. For example, captures are a lot of the time a good move, thus it is good to assign a higher score to captures such that when we sort by score the captures come towards the front.
+
+Firstly, we check if the current position exists in the transposition table. If it does, then the move stored there is ordered first since it previously proved to be the best move in this position and will likely cause a beta cutoff.
+
+Secondly, we check if a move is a promotion and assign it the second highest score since these are generally the best possible move.
+
+Captures are assigned the MVV-LVA (most valuable victim, least valuable attacker) heuristic. All captures are evaluated before quiet moves, but the better captures in terms of material value gain are evaluated first.
+
+All that is left are "quiet moves", i.e. moves that we have no information about and are also not captures. For these moves, we employ two different heuristics to order the moves. Firstly we use something called the **killer heuristic**. A move is a *killer move* if it causes a beta cutoff in a previously evaluated branch at the same depth (ply). The killer heuristic relies on the fact that if a move is strong for one variation, it will likely be strong for its siblings. We track the last two killer moves at every depth level in an array and if we recognize a killer move we evaluate it before other quiet moves.
+
+Lastly, our failsafe is the **history heuristic**. This is similar to the killer heuristic, but instead of being local to a certain depth, it is global for the whole tree. Anytime a move causes a beta cutoff, we increment the counter stored in the [from][to] location of the history array. Thus historically stronger positions are evaluated before others.
+
+Below is the implementation for all this, it is pretty straightforward one just has to update the history_moves and killer_moves tables accordingly during the search.
+
+```c
+int score_move(Position* pos, int move, int distance, int hash_move) {
+    if (move == hash_move) {
+        return 40000; // hash table moves are really good
+    }
+
+    if (get_move_promoted(move)) {
+        return 30000; // promotions really good
+    }
+
+    int from = get_move_from(move);
+    int to = get_move_to(move);
+
+    int attacker = get_piece_at(pos, from);
+    int victim = get_piece_at(pos, to);
+
+    // en passant, victim is pawn
+    if (get_move_ep(move)) {
+        victim = P; 
+    }
+
+    // if there is a victim
+    if (victim != -1) {
+        int attacker_val = piece_values[attacker];
+        int victim_val = piece_values[victim];
+
+        return victim_val - attacker_val + 20000;
+    }
+
+    // killer heuristic
+    if (move == killer_moves[0][distance]) return 19000;
+    if (move == killer_moves[1][distance]) return 18000;
+
+    // history moves, baseline
+    return history_moves[pos->side][from][to];
+}
+```
+
+### Opening Book
+
+We store an opening book for the engine to use in order to save computation time and ensure a strong line is played.
+
+### Transposition Table
+
+
+
+## 5. Results
 
 
 Mark_1 (quiescent search, basic move ordering, material only evaluation function)
@@ -380,13 +448,15 @@ Finished match
 
 Mark_6 (quiescent search, basic move ordering, material & multiple piece square tables for opening/endgame evaluation function, small opening book, killer/history move ordering heuristics, transposition tables)
 
+Note, this iteration also included a fix for a bug with the opening book thinking every fen loaded is the start position and trying to use book moves. Thus all versions before this that included an opening book (version 4 and 5) are non-functioning from any position other than the start position. Mark 1-3 still work since the opening book didn't exist then.
+
+The following is performance against stockfish skill level 4 and 10 seconds + 0.1 time control
+
 ...      Mark6 playing White: 13 - 11 - 1  [0.540] 25
 ...      Mark6 playing Black: 12 - 10 - 3  [0.540] 25
 ...      White vs Black: 23 - 23 - 4  [0.500] 50
 Elo difference: 27.9 +/- 94.8, LOS: 72.2 %, DrawRatio: 8.0 %
 SPRT: llr 0 (0.0%), lbound -inf, ubound inf
-
-The following is performance against stockfish skill level 4 and 10 seconds + 0.1 time control
 
 Player: Mark6
    "Draw by 3-fold repetition": 4
@@ -400,4 +470,33 @@ Player: Stockfish
    "Loss: White mates": 13
    "Win: Black mates": 11
    "Win: White mates": 10
+Finished match
+
+Mark_7 (Mark_6 but with a fix for unnecesary 3 fold repetiton draws from a winning position)
+
+
+The following is the resuly from SPRT with mark 6
+
+...      Mark7 playing White: 149 - 71 - 107  [0.619] 327
+...      Mark7 playing Black: 83 - 90 - 153  [0.489] 326
+...      White vs Black: 239 - 154 - 260  [0.565] 653
+Elo difference: 37.9 +/- 20.7, LOS: 100.0 %, DrawRatio: 39.8 %
+SPRT: llr 2.97 (101.0%), lbound -2.94, ubound 2.94 - H1 was accepted
+
+Player: Mark7
+   "Draw by 3-fold repetition": 241
+   "Draw by insufficient mating material": 19
+   "Loss: Black mates": 71
+   "Loss: White mates": 90
+   "No result": 3
+   "Win: Black mates": 83
+   "Win: White mates": 149
+Player: Mark6
+   "Draw by 3-fold repetition": 241
+   "Draw by insufficient mating material": 19
+   "Loss: Black mates": 83
+   "Loss: White mates": 149
+   "No result": 3
+   "Win: Black mates": 71
+   "Win: White mates": 90
 Finished match

@@ -7,6 +7,10 @@
 #include <sys/time.h>
 #include <string.h>
 
+// used for 3-fold repetition
+U64 game_history[2048]; // Stores the hash of every position played
+int game_ply = 0;       // How many moves deep into the game we are
+
 int killer_moves[2][64]; // stores 2 killer moves for up to 64 depth plys
 int history_moves[2][64][64]; // [color][from_sq][to_sq]
 
@@ -34,6 +38,16 @@ int get_piece_at(Position* pos, int square) {
         }
     }
     return -1; // empty square
+}
+
+// helper to check if repetition
+int is_repetition(Position* pos) {
+    for (int i = 0; i < game_ply - 1; i++) {
+        if (game_history[i] == pos->hash_key) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 int score_move(Position* pos, int move, int distance, int hash_move) {
@@ -174,6 +188,10 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
         return quiescence(pos, alpha, beta);
     }
 
+    if (distance > 0 && is_repetition(pos)) {
+        return 0; // it's a draw, 3 fold repetition
+    }
+
     // original alpha before changed by search
     int old_alpha = alpha; 
     
@@ -207,8 +225,12 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
             if (distance == 0 && best_move == 0) {
                 best_move = list.moves[i]; // fix the not finding a move in time
             }
+            game_history[game_ply] = next_state.hash_key;
+            game_ply++;
 
             int score = -negamax(&next_state, depth - 1, distance + 1, -beta, -alpha);
+
+            game_ply--;
 
             if (time_over) return 0;
 

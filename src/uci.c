@@ -159,6 +159,7 @@ void parse_position(char* command, Position* pos) {
     command += 9; // Skip the word "position "
     char* current_char = command;
 
+    game_ply = 0;
     current_game_history[0] = '\0';
     book_enabled = 0;
 
@@ -186,6 +187,10 @@ void parse_position(char* command, Position* pos) {
             if (move == 0) break; // Safety catch for bad string parsing
             
             make_move(pos, move);
+
+            // log history
+            game_history[game_ply] = pos->hash_key;
+            game_ply++;
             
             // Advance the text pointer to the next word
             while (*current_char && *current_char != ' ') current_char++;
