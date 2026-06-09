@@ -1,15 +1,19 @@
 #include "../include/uci.h"
 #include "../include/search.h"
 #include "../include/movegen.h"
+#include "../include/zobrist.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
 char current_game_history[2048] = "";
+int book_enabled = 0;
 
 // helper to get book move if the history is recognized
 int get_book_move(char* history, Position* pos) {
+    if (!book_enabled) return 0;
+
     FILE* file = fopen("book.txt", "r");
     if (!file) return 0;
 
@@ -64,6 +68,9 @@ void parse_go(char* command, Position* pos) {
     if ((ptr = strstr(command, "winc"))) winc = atoi(ptr + 5);
     if ((ptr = strstr(command, "binc"))) binc = atoi(ptr + 5);
     if ((ptr = strstr(command, "movestogo"))) movestogo = atoi(ptr + 10);
+    if ((ptr = strstr(command, "movetime"))) {
+        search_time_limit = atoi(ptr + 9) - 50; // Give it 50ms of safety padding
+    }
     
     // If GUI specifically asks for fixed depth, do it
     if ((ptr = strstr(command, "depth"))) depth = atoi(ptr + 6); 
@@ -153,11 +160,13 @@ void parse_position(char* command, Position* pos) {
     char* current_char = command;
 
     current_game_history[0] = '\0';
+    book_enabled = 0;
 
     // 1. Set the initial board state (Either startpos or a custom FEN)
     if (strncmp(command, "startpos", 8) == 0) {
         parse_fen(pos, START_POSITION);
         current_char += 8;
+        book_enabled = 1;
     } else if (strncmp(command, "fen", 3) == 0) {
         current_char += 4;
         parse_fen(pos, current_char);
@@ -271,6 +280,9 @@ void uci_loop(Position* pos) {
             printf("readyok\n");
         } 
         else if (strcmp(line, "ucinewgame") == 0) {
+            clear_tt();
+            memset(killer_moves, 0, sizeof(killer_moves));
+            memset(history_moves, 0, sizeof(history_moves));
             parse_fen(pos, START_POSITION);
         }
         else if (strncmp(line, "position", 8) == 0) {

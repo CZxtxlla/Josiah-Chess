@@ -274,14 +274,14 @@ int make_move(Position* pos, int move) {
             // black kingside
             pop_bit(pos->pieces[r], H8); 
             set_bit(pos->pieces[r], F8);
-            pos->hash_key ^= piece_keys[R][H8]; 
-            pos->hash_key ^= piece_keys[R][F8];
+            pos->hash_key ^= piece_keys[r][H8]; 
+            pos->hash_key ^= piece_keys[r][F8];
         } else if (to_sq == C8) {
             // black queenside
             pop_bit(pos->pieces[r], A8); 
             set_bit(pos->pieces[r], D8);
-            pos->hash_key ^= piece_keys[R][A8]; 
-            pos->hash_key ^= piece_keys[R][D8];
+            pos->hash_key ^= piece_keys[r][A8]; 
+            pos->hash_key ^= piece_keys[r][D8];
         }
     }
 

@@ -204,6 +204,10 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
         if (make_move(&next_state, list.moves[i])) {
             legal_moves++;
 
+            if (distance == 0 && best_move == 0) {
+                best_move = list.moves[i]; // fix the not finding a move in time
+            }
+
             int score = -negamax(&next_state, depth - 1, distance + 1, -beta, -alpha);
 
             if (time_over) return 0;
