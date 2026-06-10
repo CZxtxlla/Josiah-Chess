@@ -590,7 +590,7 @@ Finished match
 Mark_7 (Mark_6 but with a fix for unnecesary 3 fold repetiton draws from a winning position)
 
 
-The following is the resuly from SPRT with mark 6
+The following is the result from SPRT with mark 6
 
 ...      Mark7 playing White: 149 - 71 - 107  [0.619] 327
 ...      Mark7 playing Black: 83 - 90 - 153  [0.489] 326
@@ -614,4 +614,68 @@ Player: Mark6
    "No result": 3
    "Win: Black mates": 71
    "Win: White mates": 90
+Finished match
+
+
+Mark_8 (Mark_7 but with Null Move Pruning)
+
+The following is the result from SPRT with mark 7
+
+...      Mark8 playing White: 73 - 32 - 27  [0.655] 132
+...      Mark8 playing Black: 73 - 31 - 27  [0.660] 131
+...      White vs Black: 104 - 105 - 54  [0.498] 263
+Elo difference: 113.5 +/- 39.0, LOS: 100.0 %, DrawRatio: 20.5 %
+SPRT: llr 2.96 (100.6%), lbound -2.94, ubound 2.94 - H1 was accepted
+
+Player: Mark8
+   "Draw by 3-fold repetition": 37
+   "Draw by fifty moves rule": 3
+   "Draw by insufficient mating material": 14
+   "Loss: Black mates": 32
+   "Loss: White mates": 31
+   "No result": 3
+   "Win: Black mates": 73
+   "Win: White mates": 73
+Player: Mark7
+   "Draw by 3-fold repetition": 37
+   "Draw by fifty moves rule": 3
+   "Draw by insufficient mating material": 14
+   "Loss: Black mates": 73
+   "Loss: White mates": 73
+   "No result": 3
+   "Win: Black mates": 32
+   "Win: White mates": 31
+Finished match
+
+
+Mark_9 (Mark_8 but with principle variation search)
+
+The following is the result from SPRT with mark 8
+
+...      Mark9 playing White: 368 - 205 - 200  [0.605] 773
+...      Mark9 playing Black: 261 - 325 - 186  [0.459] 772
+...      White vs Black: 693 - 466 - 386  [0.573] 1545
+Elo difference: 22.3 +/- 15.0, LOS: 99.8 %, DrawRatio: 25.0 %
+SPRT: llr 2.95 (100.2%), lbound -2.94, ubound 2.94 - H1 was accepted
+
+Player: Mark9
+   "Draw by 3-fold repetition": 288
+   "Draw by fifty moves rule": 25
+   "Draw by insufficient mating material": 72
+   "Draw by stalemate": 1
+   "Loss: Black mates": 205
+   "Loss: White mates": 325
+   "No result": 3
+   "Win: Black mates": 261
+   "Win: White mates": 368
+Player: Mark8
+   "Draw by 3-fold repetition": 288
+   "Draw by fifty moves rule": 25
+   "Draw by insufficient mating material": 72
+   "Draw by stalemate": 1
+   "Loss: Black mates": 261
+   "Loss: White mates": 368
+   "No result": 3
+   "Win: Black mates": 205
+   "Win: White mates": 325
 Finished match

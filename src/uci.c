@@ -59,6 +59,7 @@ int get_book_move(char* history, Position* pos) {
 void parse_go(char* command, Position* pos) {
     int depth = 64; // massive depth so the clock breaks
     int wtime = -1, btime = -1, winc = 0, binc = 0, movestogo = 30;
+    int movetime = -1;
 
     char* ptr;
     
@@ -69,7 +70,7 @@ void parse_go(char* command, Position* pos) {
     if ((ptr = strstr(command, "binc"))) binc = atoi(ptr + 5);
     if ((ptr = strstr(command, "movestogo"))) movestogo = atoi(ptr + 10);
     if ((ptr = strstr(command, "movetime"))) {
-        search_time_limit = atoi(ptr + 9) - 50; // Give it 50ms of safety padding
+        movetime = atoi(ptr + 9); // Give it 50ms of safety padding
     }
     
     // If GUI specifically asks for fixed depth, do it
@@ -79,7 +80,9 @@ void parse_go(char* command, Position* pos) {
     int time_left = (pos->side == WHITE) ? wtime : btime;
     int increment = (pos->side == WHITE) ? winc : binc;
 
-    if (time_left != -1) {
+    if (movetime != -1) {
+        search_time_limit = movetime - 50; 
+    } else if (time_left != -1) {
         // divide remaining time by the moves we think are left, plus half the increment
         search_time_limit = (time_left / movestogo) + (increment / 2);
         
@@ -94,6 +97,8 @@ void parse_go(char* command, Position* pos) {
         // If no time was sent, just think for 2 seconds
         search_time_limit = 2000; 
     }
+
+    if (search_time_limit <= 0) search_time_limit = 10;
 
     int book_move = get_book_move(current_game_history, pos);
     if (book_move != 0) {

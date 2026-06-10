@@ -50,6 +50,15 @@ int is_repetition(Position* pos) {
     return 0;
 }
 
+// helper to check if there's a pawn to prevent zugzwang
+int has_non_pawn_material(Position* pos) {
+    if (pos->side == WHITE) {
+        return pos->pieces[N] || pos->pieces[B] || pos->pieces[R] || pos->pieces[Q];
+    } else {
+        return pos->pieces[n] || pos->pieces[b] || pos->pieces[r] || pos->pieces[q];
+    }
+}
+
 int score_move(Position* pos, int move, int distance, int hash_move) {
     if (move == hash_move) {
         return 40000; // hashe table moves are really good
@@ -210,12 +219,56 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
         return tt_score;  // perfect, cut the search
     }
 
+    // NMP implementation
+
+    int R = 2; // reduction for NMP
+
+    int king_type = (pos->side == WHITE) ? K : k;
+    int king_sq = __builtin_ctzll(pos->pieces[king_type]);
+    int in_check = is_square_attacked(king_sq, pos->side^1, pos);
+
+    if (depth >= R + 1 && distance > 0 && !in_check && has_non_pawn_material(pos)) {
+
+        // backup the en passant
+        int ep_backup = pos->en_passant; 
+
+        if (ep_backup != -1) {
+            pos->hash_key ^= en_passant_keys[ep_backup % 8]; // remove en passant in the hash
+        }
+        pos->hash_key ^= side_key; // flip turn in the hash
+        
+        pos->en_passant = -1; 
+        pos->side ^= 1;
+
+        // (-beta, -beta + 1) window
+        int null_score = -negamax(pos, depth - 1 - R, distance + 1, -beta, -beta + 1);
+
+        pos->side ^= 1;
+        pos->en_passant = ep_backup;
+
+        // hash back in the restored state
+        pos->hash_key ^= side_key;
+        if (ep_backup != -1) {
+            pos->hash_key ^= en_passant_keys[ep_backup % 8];
+        }
+
+        if (time_over) return 0;
+
+        // cutoff, move so good opponent couldn't beat it with a free move
+        if (null_score >= beta) {
+            return beta; 
+        }
+    }
+
+
+    // back to regular search
     MoveList list;
     generate_moves(pos, &list); // get all moves
 
     order_moves(pos, &list, distance, hash_move);
 
     int legal_moves = 0;
+    int moves_searched = 0; // track the num of legal moves we have evaluated
 
     // go through the tree, check every move
     for (int i = 0; i < list.count; i++) {
@@ -230,9 +283,23 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
             game_history[game_ply] = next_state.hash_key;
             game_ply++;
 
-            int score = -negamax(&next_state, depth - 1, distance + 1, -beta, -alpha);
+            int score;
+
+            // principle variation search
+            if (moves_searched == 0) {
+                score = -negamax(&next_state, depth - 1, distance + 1, -beta, -alpha);
+            } else {
+                score = -negamax(&next_state, depth - 1, distance + 1, -alpha - 1, -alpha);
+
+                // failsafe if move was actually better
+                if (score > alpha && score < beta) {
+                    score = -negamax(&next_state, depth - 1, distance + 1, -beta, -alpha);
+                }
+            }
 
             game_ply--;
+
+            moves_searched++;
 
             if (time_over) return 0;
 
