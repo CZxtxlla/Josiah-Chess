@@ -240,15 +240,76 @@ U64 get_rook_attacks(int square, U64 occupancy) {
 
 -------------
 
-Using all of this, we an thus generate all the moves from any given position in O(1) time, and this is the core of what allows the chess bot to see into the future.
+Using all of this, we can thus generate all the moves from any given position in O(1) time, and this is the core of what allows the chess bot to see into the future.
 
 ## 4. Chess Bot Architecture
 
+The following will describe and explain the workings behind the chess bot, roughly in the order that they were implemented.
+
 ### Negamax & Alpha Beta Pruning
-At its core the chess bot is an implementation of alpha beta pruning minimax. The variant implemented here is negamax, but that is just a small simplification of minimax. It relies on the principle that min(a, b) = -max(-a, -b). 
+At its core the chess bot is an implementation of alpha beta pruning minimax. **Minimax** works by constructing a search tree with all possible move combinations until a certain depth. Once the depth is reached, the position is statically evaluated and assigned a score based on how good it is. Then, moving up the tree if the position had black to move, it will select the move with the minimum score of all possible children and if the position had white to move it will select the move with the maximum score of all possible children. The version implemented in the code is **negamax**, a simplification of minimax relying on the fact that $\min(a, b) = -\max(-a, -b)$. We can thus write one version of the function for the side maximizing and just negate the minimizer. Note when adding alpha beta pruning, which I am about to explain, we also must negate the alpha and beta when applying negamax over minimax for this reason.
+
+**Alpha beta pruning** is an optimization of minimax/negamax that works to skip nodes that don't need to be evaluated. For example, if in a subtree there is a move that white can force that is so good for white, there is no point evaluating the other nodes in that subtree since black will never choose this subtree. The variable `beta` keeps track of the maximum score the opponent is guaranteed, so we know that if we find a score in this branch that exceeds beta, the opponent will never choose this branch and thus we can skip evaluating all the sibling nodes in this branch. The variable `alpha` keeps track of the minimum score the current player can force, which is why it is the best move for the current player.
+
+The following is the base implementation of this. Note in the actual code several enhancements are applied like transposition tables that I will mention later.
+
+```c
+int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
+    // base case
+    if (depth == 0) {
+        nodes_evaluated++;
+        return evaluate(pos);
+    }
+
+    MoveList list;
+    generate_moves(pos, &list); // get all moves
+
+    int legal_moves = 0;
+
+    // go through the tree, check every move
+    for (int i = 0; i < list.count; i++) {
+        Position next_state = *pos;
+
+        if (make_move(&next_state, list.moves[i])) {
+            legal_moves++;
+
+            int score = -negamax(&next_state, depth - 1, distance + 1, -beta, -alpha);
+
+            if (score > alpha) {
+                alpha = score;
+
+                if (distance == 0) {
+                    best_move = list.moves[i];
+                }
+            }
+
+            // prune the branch
+            if (alpha >= beta) {
+                break; 
+            }
+        }
+    }
+
+    //checkmate or stalemate
+    if (legal_moves == 0) {
+        int king_type = (pos->side == WHITE) ? K : k;
+        int king_sq = __builtin_ctzll(pos->pieces[king_type]);
+
+        if (is_square_attacked(king_sq, pos->side^1, pos)) {
+            return -49000 + distance;
+        } else {
+            return 0;
+        }
+    }
+
+    return alpha;
+}
+```
 
 ### Evaluation Function
-The evaluation function as it is now is very b
+From the previous section, I mentioned that when we reach the bottom of the tree we must statically evaluate a position. This is no easy feat, as it's very difficult to actually quantify what is a winning position, and by how much. The current evaluation function makes use of two methods to assign a position a score. First is the material value on the board. Each piece is assigned a value, queens being the highest pawns being the lowest, and the total value of pieces on the board is tallied up, adding the values for the current player and subtracting them for the opponent. 
+
+The other method of evaluating a position used is called **piece-square tables**. This is essentially a series of tables assigning each piece a bonus or penalty for what square it is on. This works to favor positions where knights are in the center of the board, pawns are pushed, etc... For kings and pawns, there are actually two tables, one for the endgame and one for the midgame. The scores given from these tables is smoothed between based on how many pieces are on the board. It aims to reflect the importance of hiding the king in the middle game versus getting the king involved in the endgame, and the importance of pushing pawns in the endgame.
 
 ### Quiescence
 
@@ -307,10 +368,64 @@ int score_move(Position* pos, int move, int distance, int hash_move) {
 
 ### Opening Book
 
-We store an opening book for the engine to use in order to save computation time and ensure a strong line is played.
+We store an opening book for the engine to use in order to save computation time and ensure a strong line is played. Ideally I should reimplement it using hashing, but for now since the opening book is relatively small it is simply stored in a text file. The UCI protocol sends the game history everytime it asks for a new move, so we simply parse the game history and see if we recognize it in the stored openings. If it is recognized, then a random move is chosen that extends it. This just works to save computation in the early game and ensure a standard and proven opening line is played.
 
 ### Transposition Table
 
+This is an extremely important optimization for the search. Chess has the property that many identical positions can be reached through entirely different move orders. These are called **transpositions**. Say we are in the start position, then the following two sequences of moves will result in the same board state: `1. e4 e5 2. Nf3 Nc6` and `1. Nf3 Nc6 2. e4 e5`. In a standard alpha beta search, these two positions would then be evaluated independently, duplicating an evaluation. This would happen many times over the whole search, wasting computation on positions already evaluated.
+
+To solve this, a **transposition table** caches evaluated positions, allowing the engine to instantly look up the scores for previously evaluated positions. There are three steps to implementing this, zobrist hashing, the table entry structure, and the integration into the alpha beta search.
+
+**Zobrist hashing** works to assign a unique identifier to every possible board state. It works as follows, on initialization a series of random 64 bit numbers are created for every piece on every square, as well as for the side to move, castling rights, and the en passant files. Here is that code:
+
+```c
+void init_zobrist() {
+    for (int piece = 0; piece < 12; piece++) {
+        for (int sq = 0; sq < 64; sq++) {
+            piece_keys[piece][sq] = get_random_U64_xorshift();
+        }
+    }
+
+    for (int file = 0; file < 8; file++) {
+        en_passant_keys[file] = get_random_U64_xorshift();
+    }
+
+    for (int i = 0; i < 16; i++) {
+        castling_keys[i] = get_random_U64_xorshift();
+    }
+
+    side_key = get_random_U64_xorshift();
+} 
+```
+
+Note the random numbers are generated using an algorithm by George Marsaglia called [xorshift64](https://en.wikipedia.org/wiki/Xorshift). Here is the implementation:
+
+```c
+U64 get_random_U64_xorshift() {
+    random_state_xor ^= random_state_xor << 13;
+    random_state_xor ^= random_state_xor >> 7;
+    random_state_xor ^= random_state_xor << 17;
+
+    return random_state_xor;
+}
+```
+
+Once we have these random numbers, we can compute the hash of any position by performing a bitwise XOR ($\oplus$) with the random numbers corresponding to the pieces currently on the board. For example, the hash for the starting position would be computed like:
+
+$$
+Hash = R_{WhiteRookA1} \oplus R_{WhiteKnightB1} \oplus \dots \oplus R_{BlackKingE8}
+$$
+
+What is unique and important about Zobrist hashing here is the fact that XOR is its own inverse. If we want to compute the hash of the starting position but with the move `e2e4`, we can simply XOR the hash with the e2 pawn random number to remove it from the hash and then XOR again with the e4 pawn random number to add it, like so:
+
+```c
+hash ^= zobrist_pieces[WHITE_PAWN][e2]; // remove piece from origin
+hash ^= zobrist_pieces[WHITE_PAWN][e4]; // place piece on destination
+```
+
+### Null Move Pruning
+
+[Null Move Pruning](https://www.chessprogramming.org/Null_Move_Pruning).
 
 
 ## 5. Results

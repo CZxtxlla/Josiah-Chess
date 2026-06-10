@@ -79,8 +79,10 @@ int score_move(Position* pos, int move, int distance, int hash_move) {
     }
 
     // killer heuristic
-    if (move == killer_moves[0][distance]) return 19000;
-    if (move == killer_moves[1][distance]) return 18000;
+    if (distance < 64) {
+        if (move == killer_moves[0][distance]) return 19000;
+        if (move == killer_moves[1][distance]) return 18000;
+    }
 
     // history moves, baseline
     return history_moves[pos->side][from][to];
@@ -251,8 +253,10 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
                 int is_capture = pos->occupancy[pos->side ^ 1] & (1ULL << to_sq) || get_move_ep(list.moves[i]);
                 if (!is_capture) {
                     // shift down the killer moves, most recent in index 0
-                    killer_moves[1][distance] = killer_moves[0][distance];
-                    killer_moves[0][distance] = list.moves[i];
+                    if (distance < 64) {
+                        killer_moves[1][distance] = killer_moves[0][distance];
+                        killer_moves[0][distance] = list.moves[i];
+                    }
 
                     // reward this move globally based on how deep we searched
                     int from_sq = get_move_from(list.moves[i]);
