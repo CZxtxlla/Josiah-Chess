@@ -59,6 +59,27 @@ int has_non_pawn_material(Position* pos) {
     }
 }
 
+// helper to check if move is legal
+int is_move_valid(Position* pos, int move) {
+    if (move == 0) {
+        return 1; // safe to evaluate
+    }
+    MoveList list;
+    generate_moves(pos, &list);
+
+    for (int i = 0; i < list.count; i++) {
+        if (list.moves[i] == move) {
+            Position next_state = *pos;
+            if (make_move(&next_state, move)) {
+                return 1; // legal move
+            }
+            return 0; // psuedo legal, but not legal
+        }
+    }
+
+    return 0; // illegal move (hash collision)
+}
+
 int score_move(Position* pos, int move, int distance, int hash_move) {
     if (move == hash_move) {
         return 40000; // hashe table moves are really good
@@ -213,10 +234,15 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
     int tt_score = 0;  
 
     if (read_hash(pos->hash_key, depth, alpha, beta, &tt_score, &hash_move)) {
-        if (distance == 0 && hash_move != 0) {
-            best_move = hash_move;
+        // check if there's a hash collision
+        if (!is_move_valid(pos, hash_move)) {
+            hash_move = 0;
+        } else {
+            if (distance == 0 && hash_move != 0) {
+                best_move = hash_move;
+            }
+            return tt_score;  // perfect, cut the search
         }
-        return tt_score;  // perfect, cut the search
     }
 
     // NMP implementation
