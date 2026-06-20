@@ -3,6 +3,7 @@
 #include "../include/movegen.h"
 #include "../include/position.h"
 #include "../include/zobrist.h"
+#include "../include/tbprobe.h"
 #include <stdio.h>
 #include <sys/time.h>
 #include <string.h>
@@ -253,6 +254,45 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
         }
     }
 
+    // Syzygy tablebase probing (WDL)
+
+    int piece_count = __builtin_popcountll(pos->occupancy[WHITE] | pos->occupancy[BLACK]);
+
+    if (piece_count <= TB_LARGEST && distance > 0 && pos->castling_rights == 0) {
+        
+        unsigned wdl = tb_probe_wdl(
+            pos->occupancy[WHITE], 
+            pos->occupancy[BLACK],
+            pos->pieces[K] | pos->pieces[k], // Combine White and Black Kings
+            pos->pieces[Q] | pos->pieces[q], // Queens
+            pos->pieces[R] | pos->pieces[r], // Rooks
+            pos->pieces[B] | pos->pieces[b], // Bishops
+            pos->pieces[N] | pos->pieces[n], // Knights
+            pos->pieces[P] | pos->pieces[p], // Pawns
+            0, // 50-move rule counter
+            pos->castling_rights,   // Castling rights (should be 0)
+            pos->en_passant == -1 ? 0 : pos->en_passant, // Fathom expects 0 if no EP
+            pos->side == WHITE
+        );
+
+        if (wdl != TB_RESULT_FAILED) {
+            int tb_score = 0;
+            
+            // Translate Fathom's win/loss/draw into C-hess scores
+            if (wdl == TB_WIN) {
+                tb_score = 49000 - distance;  // Exact mate score formula from your engine
+            } else if (wdl == TB_LOSS) {
+                tb_score = -49000 + distance;
+            } else if (wdl == TB_DRAW || wdl == TB_CURSED_WIN || wdl == TB_BLESSED_LOSS) {
+                tb_score = 0; // Draw
+            }
+
+            // Save this tablebase evaluation to our TT so we don't have to probe it again
+            write_hash(pos->hash_key, depth, tb_score, HASH_EXACT, 0);
+            return tb_score;
+        }
+    }
+
     // NMP implementation
 
     int R = 2; // reduction for NMP
@@ -451,6 +491,58 @@ void search_position(Position* pos, int depth) {
     memset(history_moves, 0, sizeof(history_moves));
     memset(pv_table, 0, sizeof(pv_table));
     memset(pv_length, 0, sizeof(pv_length));
+
+    //svygzy root probing
+    int piece_count = __builtin_popcountll(pos->occupancy[WHITE] | pos->occupancy[BLACK]);
+
+    // only probe if the piece count is low enough, and castling is no longer possible
+    if (piece_count <= TB_LARGEST && pos->castling_rights == 0) {
+        
+        unsigned root_result = tb_probe_root(
+            pos->occupancy[WHITE], 
+            pos->occupancy[BLACK],
+            pos->pieces[K] | pos->pieces[k],
+            pos->pieces[Q] | pos->pieces[q],
+            pos->pieces[R] | pos->pieces[r],
+            pos->pieces[B] | pos->pieces[b],
+            pos->pieces[N] | pos->pieces[n],
+            pos->pieces[P] | pos->pieces[p],
+            0,
+            pos->castling_rights, 
+            pos->en_passant == -1 ? 0 : pos->en_passant, 
+            pos->side == WHITE,
+            NULL
+        );
+
+        if (root_result != TB_RESULT_FAILED) {
+            unsigned tb_from = TB_GET_FROM(root_result);
+            unsigned tb_to   = TB_GET_TO(root_result);
+            unsigned tb_prom = TB_GET_PROMOTES(root_result); 
+
+            // Convert Fathom's internal promotion integer to UCI chars
+            char prom_char = ' ';
+            if (tb_prom == 1) prom_char = 'q';
+            else if (tb_prom == 2) prom_char = 'r';
+            else if (tb_prom == 3) prom_char = 'b';
+            else if (tb_prom == 4) prom_char = 'n';
+
+            // Let the GUI know we are playing from the Tablebase!
+            printf("info string Syzygy Tablebase Hit!\n");
+
+            // Convert A1=0, H8=63 format to UCI string (e.g., e7e8q)
+            if (prom_char != ' ') {
+                printf("bestmove %c%c%c%c%c\n", 
+                    (tb_from % 8) + 'a', (tb_from / 8) + '1',
+                    (tb_to % 8) + 'a', (tb_to / 8) + '1', prom_char);
+            } else {
+                printf("bestmove %c%c%c%c\n", 
+                    (tb_from % 8) + 'a', (tb_from / 8) + '1',
+                    (tb_to % 8) + 'a', (tb_to / 8) + '1');
+            }
+            
+            return; // exit search, found best move
+        }
+    }
 
     // iterative deepening
     for (int current_depth = 1; current_depth <= depth; current_depth++) {

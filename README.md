@@ -683,7 +683,7 @@ Player: Mark8
    "Win: White mates": 325
 Finished match
 
-Mark_10 (Mark_9 but with late move reductions)
+Mark_10 (Mark_9 but with late move reductions and opening book fix)
 
 The following is the result from SPRT with mark 9
 

@@ -17,13 +17,14 @@ int get_book_move(char* history, Position* pos) {
     FILE* file = fopen("book.txt", "r");
     if (!file) return 0;
 
-    int possible_moves[256];
-    int count = 0;
+    char chosen_move_str[6] = {0};
+    int valid_lines_seen = 0;
     char line[2048];
     
     int history_len = strlen(history);
 
     while (fgets(line, sizeof(line), file)) {
+        // check if matches the game history
         if (strncmp(line, history, history_len) == 0) {
             
             char* next_move_str = line + history_len;
@@ -34,25 +35,23 @@ int get_book_move(char* history, Position* pos) {
                 char single_move[6] = {0};
                 sscanf(next_move_str, "%5s", single_move);
                 
-                int move = parse_move(single_move, pos); 
-                if (move != 0) {
-                    // Prevent Buffer Overflow!
-                    if (count < 256) {
-                        possible_moves[count++] = move;
-                    } else {
-                        // We have 256 options, that's plenty.
-                        break; 
-                    }
+                // We found a valid line
+                valid_lines_seen++;
+                
+                // Reservoir Sampling 
+                // we keep the new move with a probability of 1 / valid_lines_seen
+                if (rand() % valid_lines_seen == 0) {
+                    strcpy(chosen_move_str, single_move);
                 }
             }
         }
     }
     fclose(file);
 
-    if (count == 0) return 0; 
+    // if we didn't find any matching lines, exit
+    if (valid_lines_seen == 0) return 0; 
 
-    // Return a random move
-    return possible_moves[rand() % count];
+    return parse_move(chosen_move_str, pos);
 }
 
 
