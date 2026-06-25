@@ -262,6 +262,93 @@ void run_benchmark(char* command, Position* pos) {
     printf("\nTotal Nodes: %lld\n\n", total_nodes);
 }
 
+// The recursive function that counts nodes
+long long perft_driver(Position* pos, int depth) {
+    // Base case: if we hit depth 0, we count this as 1 position (leaf node)
+    if (depth == 0) {
+        return 1ULL;
+    }
+
+    MoveList list;
+    generate_moves(pos, &list);
+    
+    long long nodes = 0;
+    
+    for (int i = 0; i < list.count; i++) {
+        // Copy the board state so we don't have to write an unmake_move function
+        Position copy = *pos;
+        
+        // Attempt to make the move. 
+        // Note: We assume make_move returns 0 if the move leaves the king in check (illegal).
+        if (make_move(&copy, list.moves[i]) == 0) {
+            continue; 
+        }
+        
+        // Recursively add the node counts from the next depths
+        nodes += perft_driver(&copy, depth - 1);
+    }
+    
+    return nodes;
+}
+
+void run_perft(char* command, Position* pos) {
+    // Expected command format: "perft [depth] [optional FEN]"
+    char* ptr = command + 5; 
+    while (*ptr == ' ') ptr++; // skip spaces
+    
+    int depth = 5; // Default depth if user just types "perft"
+    
+    // Extract the given depth
+    if (*ptr >= '0' && *ptr <= '9') {
+        depth = atoi(ptr);
+        
+        // Advance pointer past the depth numbers
+        while (*ptr != ' ' && *ptr != '\0') ptr++;
+        // Skip spaces between the depth and the FEN
+        while (*ptr == ' ') ptr++;
+    }
+
+    // If there is still text left in the command, it must be a FEN string
+    if (*ptr != '\0') {
+        parse_fen(pos, ptr);
+    }
+
+    printf("\n=== PERFT TEST: DEPTH %d ===\n", depth);
+    
+    long long search_start_time = get_time_ms();
+    long long total_nodes = 0;
+    
+    MoveList list;
+    generate_moves(pos, &list);
+    
+    // We do the first ply here in the main function so we can print the "divide"
+    for (int i = 0; i < list.count; i++) {
+        Position copy = *pos;
+        
+        if (make_move(&copy, list.moves[i]) == 0) {
+            continue;
+        }
+        
+        // Get the nodes for this specific branch
+        long long nodes = perft_driver(&copy, depth - 1);
+        
+        // Print the move and its node count
+        print_move(list.moves[i]);
+        printf(": %lld\n", nodes);
+        
+        total_nodes += nodes;
+    }
+    
+    // Calculate time and NPS (Nodes Per Second)
+    long long duration = get_time_ms() - search_start_time;
+    if (duration == 0) duration = 1; // Prevent divide by zero if it finishes instantly
+    
+    printf("\nTotal Nodes: %lld\n", total_nodes);
+    printf("Time: %lld ms\n", duration);
+    printf("NPS: %lld\n", (total_nodes * 1000) / duration);
+    printf("==============================\n");
+}
+
 
 void uci_loop(Position* pos) {
     // unbuffer the output so GUI gets text instantly
@@ -305,6 +392,8 @@ void uci_loop(Position* pos) {
             parse_go(line, pos);
         } else if (strncmp(line, "bench", 5) == 0) {
             run_benchmark(line, pos);
+        } else if (strncmp(line, "perft", 5) == 0) {
+            run_perft(line, pos);
         } else if (strcmp(line, "quit") == 0) {
             break;
         }
