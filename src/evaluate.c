@@ -158,9 +158,16 @@ int evaluate(Position* pos) {
             }
         } 
     }
+    
     int nnue_score = evaluate_nnue(pos, model);
     int hc_score = (pos->side == WHITE) ? score : -score; // flip the score if from the perspective of black
-    return (0.5 * nnue_score) + (0.5 * hc_score);
+
+    if (abs(hc_score) < 500) {
+        return (nnue_score + hc_score) >> 1; 
+    } 
     
-    //return evaluate_nnue(pos, model);
+    // If a piece is hung use more hc evaluation to ensure it its taken
+    else {
+        return (hc_score * 3 + nnue_score) >> 2;
+    }
 }
