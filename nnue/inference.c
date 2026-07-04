@@ -184,6 +184,49 @@ void evaluate_fen(NNUE* model, const char* fen) {
     printf("Eval:         %.2f (%.2f Pawns)\n", centipawns, centipawns / 100.0f);
 }
 
+
+// ----- accumulator stuff ------
+
+
+void init_accumulator(Position* pos, NNUE* model) {
+    // biases
+    for (int i = 0; i < ACC_SIZE; i++) {
+        pos->nnue_acc.white[i] = model->feature_transformer->bias[i];
+        pos->nnue_acc.black[i] = model->feature_transformer->bias[i];
+    }
+
+    // features for pieces on the board
+    for (int p = 0; p < 12; p++) {
+        U64 bb = pos->pieces[p];
+        while (bb) {
+            int sq = __builtin_ctzll(bb);
+            bb &= (bb - 1); // clear LSB
+
+            int w_idx = (p * 64) + sq;
+            int b_idx = (flip_piece(p) * 64) + flip_sq(sq);
+
+            for (int i = 0; i < ACC_SIZE; i++) {
+                pos->nnue_acc.white[i] += model->feature_transformer->weight[w_idx * ACC_SIZE + i];
+                pos->nnue_acc.black[i] += model->feature_transformer->weight[b_idx * ACC_SIZE + i];
+            }
+        }
+    }
+}
+
+void update_accumulator(Position* pos, NNUE* model, int piece, int sq, int is_adding) {
+    int w_idx = (piece * 64) + sq;
+    int b_idx = (flip_piece(piece) * 64) + flip_sq(sq);
+    
+    float sign = is_adding ? 1.0f : -1.0f;
+
+    for (int i = 0; i < ACC_SIZE; i++) {
+        pos->nnue_acc.white[i] += sign * model->feature_transformer->weight[w_idx * ACC_SIZE + i];
+        pos->nnue_acc.black[i] += sign * model->feature_transformer->weight[b_idx * ACC_SIZE + i];
+    }
+}
+
+
+
 int main() {
     printf("Loading standalone float NNUE...\n");
     NNUE* model = load_nnue("768_model_float.nnue");

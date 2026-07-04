@@ -11,6 +11,14 @@ enum {
     BQ = 8
 };
 
+#define ACC_SIZE 128
+
+// NNUE Accumulator
+typedef struct {
+    float white[ACC_SIZE];
+    float black[ACC_SIZE];
+} Accumulator;
+
 typedef struct {
 
     U64 pieces[12]; // one bitboard for each piece type
@@ -22,6 +30,8 @@ typedef struct {
     int castling_rights; // 4 bit mask (WK | WQ | BK | BQ)
 
     U64 hash_key; // used for zobrist hash of the position for transposition tables
+
+    Accumulator nnue_acc; // store white and black accumulators
     
 } Position;
 
