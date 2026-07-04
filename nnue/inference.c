@@ -1,5 +1,7 @@
 #include "inference.h"
 
+NNUE* model = NULL;
+
 LinearLayer* load_layer(FILE* file) {
     LinearLayer* layer = (LinearLayer*)malloc(sizeof(LinearLayer));
     if (fread(&layer->in_features, sizeof(int), 1, file) != 1) return NULL;
@@ -134,7 +136,7 @@ float nnue_forward(NNUE* model, int* w_idx, int* b_idx, int num_active, int stm)
     return final_logit;
 }
 
-int char_to_piece(char c) {
+static int char_to_piece(char c) {
     switch (c) {
         case 'P': return 0; case 'N': return 1; case 'B': return 2; case 'R': return 3; case 'Q': return 4; case 'K': return 5;
         case 'p': return 6; case 'n': return 7; case 'b': return 8; case 'r': return 9; case 'q': return 10; case 'k': return 11;
@@ -225,7 +227,7 @@ void update_accumulator(Position* pos, NNUE* model, int piece, int sq, int is_ad
     }
 }
 
-void evaluate_nnue(const Position* pos, NNUE* model) {
+int evaluate_nnue(const Position* pos, NNUE* model) {
     float current_input[256];
     float next_input[256];
 
@@ -277,11 +279,6 @@ void evaluate_nnue(const Position* pos, NNUE* model) {
     if (stm_win_prob > 0.999f) stm_win_prob = 0.999f;
 
     float centipawns = -400.0f * logf((1.0f / stm_win_prob) - 1.0f);
-
-    // convert absolute centipawns to relative centipawns
-    if (stm == 1) {
-        centipawns = -centipawns;
-    }
 
     return (int)roundf(centipawns);
 }

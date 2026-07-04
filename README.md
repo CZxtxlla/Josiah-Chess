@@ -745,3 +745,35 @@ Player: Stockfish_Level_4
    "Win: White makes an illegal move: h1g3": 1
    "Win: White mates": 144
 Finished match
+
+
+Mark_10NNUEblended_V1 (Mark10Tables but with 768 feature NNUE blended evaluation (50% hc 50% nnue))
+
+The following is the result of sprt with Mark_10Tables
+
+Score of Mark10_NNUEblended vs Mark10Tables: 551 - 449 - 214  [0.542] 1214
+...      Mark10_NNUEblended playing White: 337 - 161 - 110  [0.645] 608
+...      Mark10_NNUEblended playing Black: 214 - 288 - 104  [0.439] 606
+...      White vs Black: 625 - 375 - 214  [0.603] 1214
+Elo difference: 29.3 +/- 17.8, LOS: 99.9 %, DrawRatio: 17.6 %
+SPRT: llr 2.96 (100.5%), lbound -2.94, ubound 2.94 - H1 was accepted
+
+Player: Mark10_NNUEblended
+   "Draw by 3-fold repetition": 174
+   "Draw by fifty moves rule": 21
+   "Draw by insufficient mating material": 19
+   "Loss: Black mates": 161
+   "Loss: White mates": 288
+   "No result": 3
+   "Win: Black mates": 214
+   "Win: White mates": 337
+Player: Mark10Tables
+   "Draw by 3-fold repetition": 174
+   "Draw by fifty moves rule": 21
+   "Draw by insufficient mating material": 19
+   "Loss: Black mates": 214
+   "Loss: White mates": 337
+   "No result": 3
+   "Win: Black mates": 161
+   "Win: White mates": 288
+Finished match

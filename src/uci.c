@@ -2,6 +2,7 @@
 #include "../include/search.h"
 #include "../include/movegen.h"
 #include "../include/zobrist.h"
+#include "../nnue/inference.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -105,6 +106,7 @@ void parse_go(char* command, Position* pos) {
         printf("bestmove ");
         print_move(book_move);
         printf("\n");
+        fflush(stdout);
         return; 
     }
 
@@ -176,6 +178,8 @@ void parse_position(char* command, Position* pos) {
         current_char += 4;
         parse_fen(pos, current_char);
     }
+
+    init_accumulator(pos, model);
 
     // 2. Look ahead in the string to see if the word "moves" exists
     current_char = strstr(command, "moves");

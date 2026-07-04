@@ -27,6 +27,8 @@ typedef struct {
     LinearLayer** hidden_layers;
 } NNUE;
 
+extern NNUE* model;
+
 // loading
 
 LinearLayer* load_layer(FILE* file);
@@ -45,7 +47,7 @@ void init_accumulator(Position* pos, NNUE* model);
 
 void update_accumulator(Position* pos, NNUE* model, int piece, int sq, int is_adding);
 
-void evaluate_nnue(const Position* pos, NNUE* model);
+int evaluate_nnue(const Position* pos, NNUE* model);
 
 
 
