@@ -225,20 +225,63 @@ void update_accumulator(Position* pos, NNUE* model, int piece, int sq, int is_ad
     }
 }
 
+void evaluate_nnue(const Position* pos, NNUE* model) {
+    float current_input[256];
+    float next_input[256];
 
+    int stm = pos->side;
 
-int main() {
-    printf("Loading standalone float NNUE...\n");
-    NNUE* model = load_nnue("768_model_float.nnue");
-    if (!model) return 1;
+    // get accumulators from pos struct
+    const float* stm_acc = (stm == 0) ? pos->nnue_acc.white : pos->nnue_acc.black;
+    const float* nstm_acc = (stm == 0) ? pos->nnue_acc.black : pos->nnue_acc.white;
 
-    evaluate_fen(model, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-    evaluate_fen(model, "4k3/Q7/4K3/8/8/8/8/8 w - - 0 1"); // White M1
-    evaluate_fen(model, "4k3/8/8/8/8/4k3/q7/4K3 b - - 0 1"); // Black M1
-    evaluate_fen(model, "r1b2rk1/pp1nb1pp/1qn1p3/3pP3/3P4/P2B1N2/1P1BN1PP/R2QK2R w KQ - 1 14");
-    evaluate_fen(model, "2r4k/p4b2/4pq2/1p1p1nR1/5P2/P2B4/1P2Q2P/1K4R1 b - - 2 30");
+    // perspective concat
+    for (int i = 0; i < ACC_SIZE; i++) {
+        current_input[i] = clipped_relu(stm_acc[i]);
+        current_input[ACC_SIZE + i] = clipped_relu(nstm_acc[i]);
+    }
 
+    // hidden layers
+    int current_dim = ACC_SIZE * 2;
 
-    free_nnue(model);
-    return 0;
+    for (int l = 0; l < model->num_hidden_layers; l++) {
+        LinearLayer* hl = model->hidden_layers[l];
+
+        for (int i = 0; i < hl->out_features; i++) {
+            float sum = hl->bias[i];
+
+            // matmul
+            for (int j = 0; j < hl->in_features; j++) {
+                sum += current_input[j] * hl->weight[j * hl->out_features + i];
+            }
+
+            // apply relu except on final node
+            if (l < model->num_hidden_layers - 1) {
+                next_input[i] = clipped_relu(sum);
+            } else {
+                next_input[i] = sum;
+            }
+        }
+
+        // copy results into current input for next layer
+        current_dim = hl->out_features;
+        for (int i = 0; i < current_dim; i++) {
+            current_input[i] = next_input[i];
+        }
+    }
+
+    // convert prob to centipawns
+    float stm_win_prob = current_input[0];
+    
+    if (stm_win_prob < 0.001f) stm_win_prob = 0.001f;
+    if (stm_win_prob > 0.999f) stm_win_prob = 0.999f;
+
+    float centipawns = -400.0f * logf((1.0f / stm_win_prob) - 1.0f);
+
+    // convert absolute centipawns to relative centipawns
+    if (stm == 1) {
+        centipawns = -centipawns;
+    }
+
+    return (int)roundf(centipawns);
 }
