@@ -15,8 +15,8 @@ enum {
 
 // NNUE Accumulator
 typedef struct {
-    float white[ACC_SIZE];
-    float black[ACC_SIZE];
+    int16_t white[ACC_SIZE];
+    int16_t black[ACC_SIZE];
 } Accumulator;
 
 typedef struct {

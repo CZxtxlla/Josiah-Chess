@@ -17,8 +17,8 @@
 typedef struct {
     int in_features;
     int out_features;
-    float* weight; // flattened 1D array of size (in_features * out_features)
-    float* bias; // size out_features
+    int16_t* weight; // flattened 1D array of size (in_features * out_features)
+    int16_t* bias; // size out_features
 } LinearLayer;
 
 typedef struct {
@@ -34,9 +34,6 @@ extern NNUE* model;
 LinearLayer* load_layer(FILE* file);
 NNUE* load_nnue(const char* filepath);
 
-// forward
-float nnue_forward(NNUE* model, int* w_idx, int* b_idx, int num_active, int stm);
-
 // cleanup 
 void free_layer(LinearLayer* layer);
 void free_nnue(NNUE* model);
@@ -47,9 +44,8 @@ void init_accumulator(Position* pos, NNUE* model);
 
 void update_accumulator(Position* pos, NNUE* model, int piece, int sq, int is_adding);
 
-int evaluate_nnue(const Position* pos, NNUE* model);
-
-
+// integer evaluation for quantized model
+int evaluate_nnue_quantized(const Position* pos, NNUE* model);
 
 
 #endif

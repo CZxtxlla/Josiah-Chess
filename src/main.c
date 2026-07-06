@@ -19,13 +19,13 @@ static void get_nnue_path(char* out_path, size_t out_size) {
             char* last_slash = strrchr(resolved_path, '/');
             if (last_slash != NULL) {
                 *last_slash = '\0';
-                snprintf(out_path, out_size, "%s/nnue/768_model_float_9_18.nnue", resolved_path);
+                snprintf(out_path, out_size, "%s/nnue/768_model_quant_9_18.nnue", resolved_path);
                 return;
             }
         }
     }
 
-    snprintf(out_path, out_size, "nnue/768_model_float_9_18.nnue");
+    snprintf(out_path, out_size, "nnue/768_model_quant_9_18.nnue");
 }
 
 int main(int argc, char** argv) {
@@ -41,16 +41,18 @@ int main(int argc, char** argv) {
 
     tb_init("tables");
 
-    Position board;
+    Position board = {0};
 
     char nnue_path[PATH_MAX];
     get_nnue_path(nnue_path, sizeof(nnue_path));
 
     model = load_nnue(nnue_path);
     if (model == NULL) {
-        printf("info string ERROR: Could not find 768_model_float_9_18.nnue at %s!\n", nnue_path);
+        printf("info string ERROR: Could not find 768_model_quant_9_18.nnue at %s!\n", nnue_path);
         exit(1); // Force crash cleanly
     }
+
+    parse_fen(&board, START_POSITION);
     
     // Hand control over to the UCI listener
     uci_loop(&board);

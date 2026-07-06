@@ -777,3 +777,35 @@ Player: Mark10Tables
    "Win: Black mates": 161
    "Win: White mates": 288
 Finished match
+
+
+original network versus depth 9 18 million data points network, both blended
+
+Score of Mark10_NNUE_v2_phaseblend2 vs Mark10_NNUE_v1_phaseblend2: 493 - 410 - 284  [0.535] 1187
+...      Mark10_NNUE_v2_phaseblend2 playing White: 315 - 150 - 128  [0.639] 593
+...      Mark10_NNUE_v2_phaseblend2 playing Black: 178 - 260 - 156  [0.431] 594
+...      White vs Black: 575 - 328 - 284  [0.604] 1187
+Elo difference: 24.3 +/- 17.3, LOS: 99.7 %, DrawRatio: 23.9 %
+SPRT: llr 2.5 (84.8%), lbound -2.94, ubound 2.94
+
+Player: Mark10_NNUE_v2_phaseblend2
+   "Draw by 3-fold repetition": 244
+   "Draw by fifty moves rule": 14
+   "Draw by insufficient mating material": 23
+   "Draw by stalemate": 3
+   "Loss: Black mates": 150
+   "Loss: White mates": 260
+   "No result": 4
+   "Win: Black mates": 178
+   "Win: White mates": 315
+Player: Mark10_NNUE_v1_phaseblend2
+   "Draw by 3-fold repetition": 244
+   "Draw by fifty moves rule": 14
+   "Draw by insufficient mating material": 23
+   "Draw by stalemate": 3
+   "Loss: Black mates": 178
+   "Loss: White mates": 315
+   "No result": 4
+   "Win: Black mates": 150
+   "Win: White mates": 260
+Finished match
