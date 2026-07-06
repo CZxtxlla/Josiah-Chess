@@ -1,20 +1,6 @@
 # C-hess Engine Documentation
 
-A high-performance chess engine written in C utilizing bitboard representations, precomputed attack tables, and optimized move generation.
-
-## 1. How To Use
-
-Here I will mention requirements, etc... I will get around to it eventually once it is something I'm kind of happy with.
-
-## 2. Code structure
-
-The engine's core architecture is separated into distinct modular components:
-* `src/bitboard.c` & `src/bitboard.h` – Core bitboard manipulation utilities.
-* `src/magic.c` & `src/magic.h` – Magic bitboard generation for sliding pieces.
-* `src/movegen.c` & `src/movegen.h` – Legal and pseudo-legal move generation loops.
-* `src/position.c` & `src/position.h` – Board state parsing, tracking, and updates.
-
-## 3. Representing the game
+## 1. Representing the game
 
 This section goes over the code contained in src/bitboard.c, src/magic.c, src/movegen.c, src/position.c
 
@@ -242,7 +228,7 @@ U64 get_rook_attacks(int square, U64 occupancy) {
 
 Using all of this, we can thus generate all the moves from any given position in O(1) time, and this is the core of what allows the chess bot to see into the future.
 
-## 4. Chess Bot Architecture
+## 2. Chess Bot Architecture
 
 The following will describe and explain the workings behind the chess bot, roughly in the order that they were implemented.
 
@@ -431,7 +417,7 @@ hash ^= zobrist_pieces[WHITE_PAWN][e4]; // place piece on destination
 
 ### Late Move Reduction
 
-## 5. Results
+## 3. Results
 
 
 Mark_1 (quiescent search, basic move ordering, material only evaluation function)
