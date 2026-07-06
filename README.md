@@ -91,10 +91,6 @@ To extend or modify the engine:
 2. Update `CMakeLists.txt` with new source files
 3. Rebuild with `cmake` and `make`
 
-## License
-
-Check `LICENSE` file or project documentation for licensing information.
-
 ## References
 
 - [UCI Protocol Specification](https://gist.github.com/DOBRO/2592c6dad754ba67e6dcaec8c90165bf)
