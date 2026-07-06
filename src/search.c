@@ -27,6 +27,8 @@ int time_over = 0;
 int best_move = 0;
 long long nodes_evaluated = 0;
 
+int syzygy_enabled = 0; // used for enabling endgame tablebases
+
 // helper to get current time in ms for iterative deepening
 long long get_time_ms() {
     struct timeval tv;
@@ -258,7 +260,7 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
 
     int piece_count = __builtin_popcountll(pos->occupancy[WHITE] | pos->occupancy[BLACK]);
 
-    if (piece_count <= TB_LARGEST && distance > 0 && pos->castling_rights == 0) {
+    if (syzygy_enabled && piece_count <= TB_LARGEST && distance > 0 && pos->castling_rights == 0) {
         
         unsigned wdl = tb_probe_wdl(
             pos->occupancy[WHITE], 
@@ -496,7 +498,7 @@ void search_position(Position* pos, int depth) {
     int piece_count = __builtin_popcountll(pos->occupancy[WHITE] | pos->occupancy[BLACK]);
 
     // only probe if the piece count is low enough, and castling is no longer possible
-    if (piece_count <= TB_LARGEST && pos->castling_rights == 0) {
+    if (syzygy_enabled && piece_count <= TB_LARGEST && pos->castling_rights == 0) {
         
         unsigned root_result = tb_probe_root(
             pos->occupancy[WHITE], 
@@ -526,7 +528,7 @@ void search_position(Position* pos, int depth) {
             else if (tb_prom == 3) prom_char = 'b';
             else if (tb_prom == 4) prom_char = 'n';
 
-            // Let the GUI know we are playing from the Tablebase!
+            // Let the GUI know we are playing from the tablebase
             printf("info string Syzygy Tablebase Hit!\n");
 
             // Convert A1=0, H8=63 format to UCI string (e.g., e7e8q)

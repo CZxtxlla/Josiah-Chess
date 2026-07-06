@@ -16,6 +16,8 @@ extern long long nodes_evaluated;
 extern long long search_start_time;
 extern int best_move;
 
+extern int syzygy_enabled;
+
 long long get_time_ms();
 
 // helper to give a move a very quick preliminary score value

@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
     init_zobrist();
     init_tt(128); // 128 megabytes
 
-    tb_init("tables");
+    //tb_init("tables");
 
     Position board = {0};
 

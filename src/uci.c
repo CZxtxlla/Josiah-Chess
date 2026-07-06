@@ -2,6 +2,7 @@
 #include "../include/search.h"
 #include "../include/movegen.h"
 #include "../include/zobrist.h"
+#include "../syzygy/tbprobe.h"
 #include "../nnue/inference.h"
 #include <string.h>
 #include <stdio.h>
@@ -372,11 +373,13 @@ void uci_loop(Position* pos) {
 
         // Use strcmp (exact match) instead of strncmp to prevent "ucinewgame" trap
         if (strcmp(line, "uci") == 0) {
-            printf("id name CharlesEngine\n");
-            printf("id author Charles\n");
+            printf("id name JosiahEngine\n");
+            printf("id author Charles Zitella\n");
             printf("option name Move Overhead type spin default 500 min 0 max 5000\n");
             printf("option name Threads type spin default 1 min 1 max 128\n");
             printf("option name Hash type spin default 16 min 1 max 32768\n");
+            printf("option name SyzygyPath type string default <empty>\n");
+
             printf("uciok\n");
         } 
         else if (strcmp(line, "isready") == 0) {
@@ -398,8 +401,21 @@ void uci_loop(Position* pos) {
             run_benchmark(line, pos);
         } else if (strncmp(line, "perft", 5) == 0) {
             run_perft(line, pos);
+        } else if (strncmp(line, "setoption name SyzygyPath value ", 32) == 0) {
+            char* path = line + 32; // Extract the path string
+            
+            // Call Fathom's init function with the path provided by the user
+            if (tb_init(path)) {
+                // If Fathom found files and successfully initialized
+                syzygy_enabled = 1;
+                printf("info string Syzygy tablebases successfully loaded from %s\n", path);
+            } else {
+                // Fathom failed (wrong path or no files)
+                syzygy_enabled = 0;
+                printf("info string Failed to load Syzygy tablebases from %s\n", path);
+            }
         } else if (strcmp(line, "quit") == 0) {
             break;
-        }
+        } 
     }
 }
