@@ -9,7 +9,7 @@
 #include <mach-o/dyld.h>
 #include <string.h>
 
-static void get_nnue_path(char* out_path, size_t out_size) {
+void get_resource_path(const char* filename, char* out_path, size_t out_size) {
     char exe_path[PATH_MAX];
     uint32_t exe_size = sizeof(exe_path);
 
@@ -19,13 +19,13 @@ static void get_nnue_path(char* out_path, size_t out_size) {
             char* last_slash = strrchr(resolved_path, '/');
             if (last_slash != NULL) {
                 *last_slash = '\0';
-                snprintf(out_path, out_size, "%s/nnue/768_model_quant_9_18.nnue", resolved_path);
+                snprintf(out_path, out_size, "%s/%s", resolved_path, filename);
                 return;
             }
         }
     }
-
-    snprintf(out_path, out_size, "nnue/768_model_quant_9_18.nnue");
+    // Fallback
+    snprintf(out_path, out_size, "%s", filename);
 }
 
 int main(int argc, char** argv) {
@@ -44,11 +44,11 @@ int main(int argc, char** argv) {
     Position board = {0};
 
     char nnue_path[PATH_MAX];
-    get_nnue_path(nnue_path, sizeof(nnue_path));
+    get_resource_path("nnue/768_model_quant_9_18.nnue", nnue_path, sizeof(nnue_path));
 
     model = load_nnue(nnue_path);
     if (model == NULL) {
-        printf("info string ERROR: Could not find 768_model_quant_9_18.nnue at %s!\n", nnue_path);
+        printf("info string ERROR: Could not find 768_model_quant_9_18_torch.nnue at %s!\n", nnue_path);
         exit(1); // Force crash cleanly
     }
 

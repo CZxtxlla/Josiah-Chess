@@ -81,7 +81,7 @@ int flip_sq(int sq) { return sq ^ 56; }
 int flip_piece(int p_type) { return (p_type + 6) % 12; }
 
 static inline int clipped_relu_int(int x) {
-    if (x < 0) return x / 100;
+    if (x < 0) return 0;//return x / 100;
     if (x > 256) return 256;
     return x;
 }

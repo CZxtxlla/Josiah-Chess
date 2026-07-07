@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <limits.h>
 
 char current_game_history[2048] = "";
 int book_enabled = 0;
@@ -16,7 +17,10 @@ int book_enabled = 0;
 int get_book_move(char* history, Position* pos) {
     if (!book_enabled) return 0;
 
-    FILE* file = fopen("book.txt", "r");
+    char book_path[PATH_MAX];
+    get_resource_path("book.txt", book_path, sizeof(book_path));
+
+    FILE* file = fopen(book_path, "r");
     if (!file) return 0;
 
     char chosen_move_str[6] = {0};
