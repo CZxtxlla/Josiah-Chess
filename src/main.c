@@ -37,9 +37,7 @@ int main(int argc, char** argv) {
     init_sliders();
     
     init_zobrist();
-    init_tt(128); // 128 megabytes
-
-    //tb_init("tables");
+    init_tt(64); // 64 megabytes
 
     Position board = {0};
 

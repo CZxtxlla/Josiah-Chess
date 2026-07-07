@@ -418,6 +418,17 @@ void uci_loop(Position* pos) {
                 syzygy_enabled = 0;
                 printf("info string Failed to load Syzygy tablebases from %s\n", path);
             }
+        } else if (strncmp(line, "setoption name Hash value ", 26) == 0) {
+            int hash_size = atoi(line + 26);
+            
+            // Constrain to the min/max defined in your UCI options
+            if (hash_size < 1) hash_size = 1;
+            if (hash_size > 32768) hash_size = 32768;
+            
+            // Re-initialize the transposition table.
+            init_tt(hash_size);
+            printf("info string Hash size set to %d MB\n", hash_size);
+            
         } else if (strcmp(line, "quit") == 0) {
             break;
         } 

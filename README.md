@@ -46,13 +46,12 @@ Start the engine directly:
 ./build/bin/josiah_engine
 ```
 
-The engine speaks UCI. Common commands are:
+The engine speaks UCI. Common working commands are:
 
 - `uci` to print engine identity and options
 - `isready` to confirm the engine is ready
 - `position startpos` to load the initial chess position
 - `position fen <fen-string>` to load a custom position
-- `setoption name Threads value 4` to change search threads
 - `setoption name Hash value 128` to change transposition table size
 - `setoption name SyzygyPath value /path/to/tables` to enable optional Syzygy tablebases
 - `go wtime 300000 btime 300000` to start searching
