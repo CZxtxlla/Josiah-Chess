@@ -27,7 +27,7 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-The executable is written to `build/bin/josiah_engine`. The build also stages the NNUE model in `build/bin/nnue/` and links the source `tables/` directory at `build/bin/tables` on Unix-like systems.
+The executable is written to `build/bin/josiah_engine`. The build also stages the NNUE model in `build/bin/nnue/`.
 
 ### Manual build
 
@@ -53,7 +53,7 @@ The engine speaks UCI. Common working commands are:
 - `position startpos` to load the initial chess position
 - `position fen <fen-string>` to load a custom position
 - `setoption name Hash value 128` to change transposition table size
-- `setoption name SyzygyPath value /path/to/tables` to enable optional Syzygy tablebases
+- `setoption name SyzygyPath value /path/to/tables` to enable optional Syzygy tablebases (path is absolute)
 - `go wtime 300000 btime 300000` to start searching
 - `quit` to exit
 
@@ -71,7 +71,7 @@ quit
 
 - The NNUE loader expects the quantized model `nnue/768_model_quant_9_18.nnue`.
 - Syzygy tablebases are optional and only used after the UCI `SyzygyPath` option is set.
-- If you move the binary outside the build tree, keep the `nnue/` directory next to it.
+- If you move the binary outside the build tree, keep the `nnue/` directory next to it otherwise the engine will crash.
 
 ## Layout
 
@@ -90,13 +90,18 @@ To extend or modify the engine:
 2. Update `CMakeLists.txt` with new source files
 3. Rebuild with `cmake` and `make`
 
+Some weak points include the handcrafted evaluation function that is being used in tandem with the nnue, as well as the opening book which is little more than a text file lookup.
+
 ## References
+Obviously the chess programming wiki but definitely also for the nnue stuff the stockfish documentation is a great resource. Here are several key resources used.
 
 - [UCI Protocol Specification](https://gist.github.com/DOBRO/2592c6dad754ba67e6dcaec8c90165bf)
-- [Bitboards in Computer Chess](https://www.chessprogramming.org/Bitboards)
-- [NNUE Evaluation](https://www.chessprogramming.org/NNUE)
+- [Bitboards](https://www.chessprogramming.org/Bitboards)
+- [Alpha-Beta Pruning](https://www.chessprogramming.org/Alpha-Beta)
+- [NNUE Evaluation](https://official-stockfish.github.io/docs/nnue-pytorch-wiki/docs/nnue.html)
+
+Additionally llms are very useful tools for understanding some of the more difficult concepts (like the nnue or alpha beta optimizations).
 
 ---
 
-**Engine Version**: 10.0  
 **Last Updated**: 2026-07-06
