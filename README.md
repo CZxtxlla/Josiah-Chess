@@ -13,12 +13,6 @@ Josiah is a C chess engine with bitboard move generation, NNUE evaluation, UCI s
 
 ## Building
 
-### Requirements
-
-- CMake 3.15 or later
-- A C11 compiler such as GCC or Clang
-- macOS Command Line Tools or standard build tools on Linux
-
 ### Build with CMake
 
 ```bash
@@ -104,4 +98,4 @@ Additionally llms are very useful tools for understanding some of the more diffi
 
 ---
 
-**Last Updated**: 2026-07-06
+**Last Updated**: 2026-07-08
