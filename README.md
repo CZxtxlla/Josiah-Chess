@@ -63,7 +63,7 @@ quit
 
 ## Notes
 
-- The NNUE loader expects the quantized model `nnue/768_model_quant_9_18.nnue`.
+- The NNUE loader expects the quantized model `nnue/768_quant_9_18_50_1024.nnue`.
 - Syzygy tablebases are optional and only used after the UCI `SyzygyPath` option is set.
 - If you move the binary outside the build tree, keep the `nnue/` directory next to it otherwise the engine will crash.
 

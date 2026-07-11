@@ -42,11 +42,11 @@ int main(int argc, char** argv) {
     Position board = {0};
 
     char nnue_path[PATH_MAX];
-    get_resource_path("nnue/768_model_quant_9_18.nnue", nnue_path, sizeof(nnue_path));
+    get_resource_path("nnue/768_quant_9_18_50_1024.nnue", nnue_path, sizeof(nnue_path));
 
     model = load_nnue(nnue_path);
     if (model == NULL) {
-        printf("info string ERROR: Could not find 768_model_quant_9_18_torch.nnue at %s!\n", nnue_path);
+        printf("info string ERROR: Could not find 768_model_quant_9_18_50_1024.nnue at %s!\n", nnue_path);
         exit(1); // Force crash cleanly
     }
 

@@ -10,8 +10,8 @@ LinearLayer* load_layer(FILE* file) {
     int w_size = layer->in_features * layer->out_features;
     int b_size = layer->out_features;
 
-    layer->weight = (int16_t*)malloc(w_size * sizeof(float));
-    layer->bias = (int16_t*)malloc(b_size * sizeof(float));
+    layer->weight = (int16_t*)malloc(w_size * sizeof(int16_t));
+    layer->bias = (int16_t*)malloc(b_size * sizeof(int16_t));
 
     fread(layer->weight, sizeof(int16_t), w_size, file);
     fread(layer->bias, sizeof(int16_t), b_size, file);
@@ -80,7 +80,7 @@ static int char_to_piece(char c) {
 int flip_sq(int sq) { return sq ^ 56; }
 int flip_piece(int p_type) { return (p_type + 6) % 12; }
 
-static inline int clipped_relu_int(int x) {
+static inline int32_t clipped_relu_int(int32_t x) {
     if (x < 0) return 0;//return x / 100;
     if (x > 256) return 256;
     return x;
@@ -131,14 +131,14 @@ void update_accumulator(Position* pos, NNUE* model, int piece, int sq, int is_ad
 
 // for quantized network
 int evaluate_nnue_quantized(const Position* pos, NNUE* model) {
-    int current_input[256];
-    int next_input[256];
+    int current_input[ACC_SIZE * 2];
+    int next_input[ACC_SIZE * 2];
 
     int stm = pos->side;
 
     // get accumulators from pos struct
-    const int16_t* stm_acc = (stm == 0) ? pos->nnue_acc.white : pos->nnue_acc.black;
-    const int16_t* nstm_acc = (stm == 0) ? pos->nnue_acc.black : pos->nnue_acc.white;
+    const int32_t* stm_acc = (stm == 0) ? pos->nnue_acc.white : pos->nnue_acc.black;
+    const int32_t* nstm_acc = (stm == 0) ? pos->nnue_acc.black : pos->nnue_acc.white;
 
     // perspective concat
     for (int i = 0; i < ACC_SIZE; i++) {
@@ -153,20 +153,20 @@ int evaluate_nnue_quantized(const Position* pos, NNUE* model) {
         LinearLayer* hl = model->hidden_layers[l];
 
         for (int i = 0; i < hl->out_features; i++) {
-            int32_t sum = hl->bias[i] * 256; // scale up the bias
+            int64_t sum = (int64_t)hl->bias[i] * 256; // scale up the bias
 
             // matmul
             for (int j = 0; j < hl->in_features; j++) {
-                sum += current_input[j] * hl->weight[j * hl->out_features + i];
+                sum += (int64_t) current_input[j] * hl->weight[j * hl->out_features + i];
             }
 
             sum = sum >> 8; // divide by 256
 
             // apply relu except on final node
             if (l < model->num_hidden_layers - 1) {
-                next_input[i] = clipped_relu_int(sum);
+                next_input[i] = (int)clipped_relu_int(sum);
             } else {
-                next_input[i] = sum;
+                next_input[i] = (int)sum;
             }
         }
 

@@ -11,12 +11,12 @@ enum {
     BQ = 8
 };
 
-#define ACC_SIZE 128
+#define ACC_SIZE 1024
 
 // NNUE Accumulator
 typedef struct {
-    int16_t white[ACC_SIZE];
-    int16_t black[ACC_SIZE];
+    int32_t white[ACC_SIZE];
+    int32_t black[ACC_SIZE];
 } Accumulator;
 
 typedef struct {
