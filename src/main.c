@@ -46,7 +46,7 @@ int main(int argc, char** argv) {
 
     model = load_nnue(nnue_path);
     if (model == NULL) {
-        printf("info string ERROR: Could not find 768_model_quant_9_18_50_1024.nnue at %s!\n", nnue_path);
+        printf("info string ERROR: Could not find 768_quant_9_18_50_1024.nnue at %s!\n", nnue_path);
         exit(1); // Force crash cleanly
     }
 
