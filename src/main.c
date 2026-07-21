@@ -6,25 +6,29 @@
 #include "../include/zobrist.h"
 #include "../syzygy/tbprobe.h"
 #include <limits.h>
-#include <mach-o/dyld.h>
 #include <string.h>
+#include <unistd.h>
+
 
 void get_resource_path(const char* filename, char* out_path, size_t out_size) {
-    char exe_path[PATH_MAX];
-    uint32_t exe_size = sizeof(exe_path);
-
-    if (_NSGetExecutablePath(exe_path, &exe_size) == 0) {
-        char resolved_path[PATH_MAX];
-        if (realpath(exe_path, resolved_path) != NULL) {
-            char* last_slash = strrchr(resolved_path, '/');
-            if (last_slash != NULL) {
-                *last_slash = '\0';
-                snprintf(out_path, out_size, "%s/%s", resolved_path, filename);
-                return;
-            }
+    char exe_path[4096];
+    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+    
+    if (len != -1) {
+        exe_path[len] = '\0';
+        
+        // find the last '/' to isolate the directory containing the executable
+        char* last_slash = strrchr(exe_path, '/');
+        if (last_slash != NULL) {
+            *last_slash = '\0'; // Truncate the string at the last slash
+            
+            // construct the absolute path: <exe_directory>/<filename>
+            snprintf(out_path, out_size, "%s/%s", exe_path, filename);
+            return; // success
         }
     }
-    // Fallback
+    
+    // Fallback, if readlink fails or no slash is found, use the relative path
     snprintf(out_path, out_size, "%s", filename);
 }
 

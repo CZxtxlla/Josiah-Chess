@@ -3,6 +3,7 @@
 
 #include "position.h"
 #include <stddef.h>
+#define PATH_MAX 4096
 
 
 extern char current_game_history[2048];
