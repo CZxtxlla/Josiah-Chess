@@ -637,7 +637,7 @@ void play_datagen_game(char* starting_fen, FILE* output_file) {
     Position pos;
     parse_fen(&pos, starting_fen);
     
-    // Reset your engine's global game state for the new game
+    // Reset engine's global game state for the new game
     memset(game_history, 0, sizeof(game_history)); 
     game_ply = 0;
     
