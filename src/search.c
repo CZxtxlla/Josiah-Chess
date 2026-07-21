@@ -4,30 +4,33 @@
 #include "../include/position.h"
 #include "../include/zobrist.h"
 #include "../syzygy/tbprobe.h"
+#include "../include/datagen.h"
 #include <stdio.h>
 #include <sys/time.h>
 #include <string.h>
 
 // used for 3-fold repetition
-U64 game_history[2048]; // Stores the hash of every position played
-int game_ply = 0;       // How many moves deep into the game we are
+__thread U64 game_history[2048]; // Stores the hash of every position played
+__thread int game_ply = 0;       // How many moves deep into the game we are
 
-int killer_moves[2][64]; // stores 2 killer moves for up to 64 depth plys
-int history_moves[2][64][64]; // [color][from_sq][to_sq]
+__thread int killer_moves[2][MAX_SEARCH_PLY]; // stores 2 killer moves for up to 64 depth plys
+__thread int history_moves[2][64][64]; // [color][from_sq][to_sq]
 
-int pv_length[64]; // Stores the length of the PV for each ply
-int pv_table[64][64]; // stores the actual PV moves: [ply][move index]
+__thread int pv_length[MAX_SEARCH_PLY]; // Stores the length of the PV for each ply
+__thread int pv_table[MAX_SEARCH_PLY][MAX_SEARCH_PLY]; // stores the actual PV moves: [ply][move index]
 
 // used for iterative deepening
-int search_time_limit = 2000; // Stop searching after 2000ms (2 seconds)
-long long search_start_time = 0;
-int time_over = 0;
+__thread int search_time_limit = 2000; // Stop searching after 2000ms (2 seconds)
+__thread long long search_start_time = 0;
+__thread int time_over = 0;
 
 // used for negamax
-int best_move = 0;
-long long nodes_evaluated = 0;
+__thread int best_move = 0;
+__thread long long nodes_evaluated = 0;
 
 int syzygy_enabled = 0; // used for enabling endgame tablebases
+
+__thread int search_node_limit = 0; // 0 means ignore nodes, use time limit
 
 // helper to get current time in ms for iterative deepening
 long long get_time_ms() {
@@ -115,7 +118,7 @@ int score_move(Position* pos, int move, int distance, int hash_move) {
     }
 
     // killer heuristic
-    if (distance < 64) {
+    if (distance < MAX_SEARCH_PLY) {
         if (move == killer_moves[0][distance]) return 19000;
         if (move == killer_moves[1][distance]) return 18000;
     }
@@ -155,6 +158,10 @@ int quiescence(Position* pos, int alpha, int beta) {
     // Every 2048 nodes, check if we are out of time
     if ((nodes_evaluated % 2048) == 0) {
         if (get_time_ms() - search_start_time >= search_time_limit) {
+            time_over = 1;
+        }
+        // for datagen
+        if (search_node_limit > 0 && nodes_evaluated >= search_node_limit) {
             time_over = 1;
         }
     }
@@ -214,10 +221,15 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
         if (get_time_ms() - search_start_time >= search_time_limit) {
             time_over = 1;
         }
+
+        // for datagen
+        if (search_node_limit > 0 && nodes_evaluated >= search_node_limit) {
+            time_over = 1;
+        }
     }
 
     // initialize pv length table
-    if (distance < 64) {
+    if (distance < MAX_SEARCH_PLY - 1) {
         pv_length[distance] = distance;
     }
 
@@ -249,10 +261,14 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
         if (!is_move_valid(pos, hash_move)) {
             hash_move = 0;
         } else {
-            if (distance == 0 && hash_move != 0) {
-                best_move = hash_move;
+            if (distance == 0 && hash_move == 0) {
+                // do nothing
+            } else { 
+                if (distance == 0 && hash_move != 0) {
+                    best_move = hash_move;
+                }
+                return tt_score;  // perfect, cut the search
             }
-            return tt_score;  // perfect, cut the search
         }
     }
 
@@ -416,7 +432,7 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
                     best_move = list.moves[i];
                 }
 
-                if (distance < 64) {
+                if (distance < MAX_SEARCH_PLY - 1) {
                     pv_table[distance][distance] = list.moves[i];
                     
                     // Copy the PV from the deeper ply to the current ply
@@ -436,7 +452,7 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
                 int is_capture = pos->occupancy[pos->side ^ 1] & (1ULL << to_sq) || get_move_ep(list.moves[i]);
                 if (!is_capture) {
                     // shift down the killer moves, most recent in index 0
-                    if (distance < 64) {
+                    if (distance < MAX_SEARCH_PLY) {
                         killer_moves[1][distance] = killer_moves[0][distance];
                         killer_moves[0][distance] = list.moves[i];
                     }
@@ -570,4 +586,183 @@ void search_position(Position* pos, int depth) {
     printf("bestmove ");
     print_move(best_move_so_far);
     printf("\n");
+}
+
+
+// ------- Stuff for Datagen -----------
+
+int search_position_nodes(Position* pos, int max_nodes) {
+    search_start_time = get_time_ms();
+    time_over = 0;
+    
+    // Force the search to use nodes instead of time
+    search_node_limit = max_nodes;
+    search_time_limit = 99999999; 
+    
+    int best_move_so_far = 0;
+    best_move = 0;
+    nodes_evaluated = 0;
+
+    memset(killer_moves, 0, sizeof(killer_moves));
+    memset(history_moves, 0, sizeof(history_moves));
+    memset(pv_table, 0, sizeof(pv_table));
+    memset(pv_length, 0, sizeof(pv_length));
+
+    int final_score = 0;
+
+    // Iterative deepening limited by nodes
+    for (int current_depth = 1; current_depth <= 64; current_depth++) {
+        int score = negamax(pos, current_depth, 0, -50000, 50000);
+
+        if (time_over) {
+            break; // Node limit reached, break out of iterative deepening
+        }
+
+        final_score = score; // Save the completed depth's score
+
+        if (best_move != 0) {
+            best_move_so_far = best_move;
+        }
+    }
+
+    if (best_move_so_far != 0) {
+        best_move = best_move_so_far;
+    }
+
+    search_node_limit = 0; // Reset back to normal UCI behavior
+    return final_score;
+}
+
+void play_datagen_game(char* starting_fen, FILE* output_file) {
+    Position pos;
+    parse_fen(&pos, starting_fen);
+    
+    // Reset your engine's global game state for the new game
+    memset(game_history, 0, sizeof(game_history)); 
+    game_ply = 0;
+    
+    
+    //clear_tt(); 
+    
+    TrainingData game_data[1000]; // Array to hold this game's positions
+    int positions_saved = 0;
+    
+    int game_result = -2; // 1 = White, 0 = Draw, -1 = Black
+    int win_adjudicator = 0;
+    int draw_adjudicator = 0;
+    
+    while (1) {
+        // mate/stalemate detection
+        MoveList list;
+        generate_moves(&pos, &list);
+        
+        int king_type = (pos.side == WHITE) ? K : k;
+        int king_sq = __builtin_ctzll(pos.pieces[king_type]);
+        int in_check = is_square_attacked(king_sq, pos.side ^ 1, &pos);
+        
+        int has_legal_moves = 0;
+        for (int i = 0; i < list.count; i++) {
+            Position test_pos = pos;
+            if (make_move(&test_pos, list.moves[i])) {
+                has_legal_moves = 1;
+                break;
+            }
+        }
+        
+        if (!has_legal_moves) {
+            if (in_check) {
+                game_result = (pos.side == WHITE) ? -1 : 1; // Mated
+            } else {
+                game_result = 0; // Stalemate
+            }
+            break; // end game
+        }
+        
+        // repetition or length
+        if (is_repetition(&pos) || game_ply >= 600) {
+            game_result = 0;
+            break;
+        }
+        
+        // search position
+        int score = search_position_nodes(&pos, 10000); 
+
+        if (best_move == 0) {
+            fprintf(stderr, "info string datagen aborted: search did not produce a legal move\n");
+            break;
+        }
+
+        if (!is_move_valid(&pos, best_move)) {
+            fprintf(stderr, "info string datagen aborted: search produced an invalid move\n");
+            break;
+        }
+        
+        // Stop playing dead-won games
+        if (score > 2000) win_adjudicator++;
+        else if (score < -2000) win_adjudicator--;
+        else win_adjudicator = 0;
+        
+        if (win_adjudicator >= 4) {
+            game_result = (pos.side == WHITE) ? 1 : -1;
+            break;
+        } else if (win_adjudicator <= -4) {
+            game_result = (pos.side == WHITE) ? -1 : 1;
+            break;
+        }
+        
+        // Stop playing dead-drawn games
+        if (score == 0) draw_adjudicator++;
+        else draw_adjudicator = 0;
+        
+        if (draw_adjudicator >= 12) {
+            game_result = 0;
+            break;
+        }
+        
+        // check if quiet (no checks, captures)
+        int to_sq = get_move_to(best_move);
+        int is_capture = (pos.occupancy[pos.side ^ 1] & (1ULL << to_sq)) || get_move_ep(best_move);
+        
+        // Only save data if it's a quiet position and we haven't hit tablebases (< 6 pieces)
+        int piece_count = __builtin_popcountll(pos.occupancy[WHITE] | pos.occupancy[BLACK]);
+        
+        if (!in_check && !is_capture && piece_count > 5 && positions_saved < 1000) {
+            extract_features(&pos, &game_data[positions_saved]);
+            game_data[positions_saved].eval = score;
+            positions_saved++;
+        }
+        
+        // make move, update history
+        game_history[game_ply] = pos.hash_key;
+        game_ply++;
+
+        if (!make_move(&pos, best_move)) {
+            fprintf(stderr, "info string datagen aborted: failed to apply move\n");
+            break;
+        }
+    }
+    
+    // fill the WDL
+    for (int i = 0; i < positions_saved; i++) {
+        game_data[i].win = 0;
+        game_data[i].draw = 0;
+        game_data[i].loss = 0;
+        
+        if (game_result == 0) {
+            game_data[i].draw = 1; 
+        } else {
+            int is_white_turn = (game_data[i].stm == 0); // 0 = White
+            
+            if ((is_white_turn && game_result == 1) || (!is_white_turn && game_result == -1)) {
+                game_data[i].win = 1;
+            } else {
+                game_data[i].loss = 1;
+            }
+        }
+    }
+    
+    // write to bin file
+    if (positions_saved > 0) {
+        fwrite(game_data, sizeof(TrainingData), positions_saved, output_file);
+    }
 }

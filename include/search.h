@@ -3,18 +3,22 @@
 
 #include "position.h"
 #include "movegen.h"
+#include <stdio.h>
 
-extern U64 game_history[2048];
-extern int game_ply;
+#define MAX_SEARCH_PLY 128
 
-extern int killer_moves[2][64];
-extern int history_moves[2][64][64];
+extern __thread U64 game_history[2048];
+extern __thread int game_ply;
 
-extern int search_time_limit;
-extern int time_over;
-extern long long nodes_evaluated;
-extern long long search_start_time;
-extern int best_move;
+extern __thread int killer_moves[2][MAX_SEARCH_PLY];
+extern __thread int history_moves[2][64][64];
+
+extern __thread int search_time_limit;
+extern __thread int time_over;
+extern __thread long long nodes_evaluated;
+extern __thread long long search_start_time;
+extern __thread int best_move;
+extern __thread int search_node_limit;
 
 extern int syzygy_enabled;
 
@@ -35,6 +39,7 @@ void search_position(Position* pos, int depth);
 // base case for negamax that continues until there are no captures
 int quiescence(Position* pos, int alpha, int beta);
 
-
+// for datagen
+void play_datagen_game(char* starting_fen, FILE* output_file);
 
 #endif

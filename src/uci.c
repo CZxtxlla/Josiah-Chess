@@ -4,6 +4,7 @@
 #include "../include/zobrist.h"
 #include "../syzygy/tbprobe.h"
 #include "../nnue/inference.h"
+#include "../include/datagen.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -405,6 +406,8 @@ void uci_loop(Position* pos) {
             run_benchmark(line, pos);
         } else if (strncmp(line, "perft", 5) == 0) {
             run_perft(line, pos);
+        } else if (strncmp(line, "datagen", 7) == 0) {
+            run_datagen(line);
         } else if (strncmp(line, "setoption name SyzygyPath value ", 32) == 0) {
             char* path = line + 32; // Extract the path string
             

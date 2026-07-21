@@ -42,6 +42,7 @@ add_executable(josiah_engine
     src/zobrist.c
     nnue/inference.c
     syzygy/tbprobe.c
+    src/datagen.c
 )
 
 # Include directories
@@ -82,6 +83,15 @@ add_custom_command(TARGET josiah_engine POST_BUILD
         "${CMAKE_BINARY_DIR}/bin/book.txt"
     COMMENT "Copying opening book to build directory..."
 )
+
+# Copy opening book to build directory
+add_custom_command(TARGET josiah_engine POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/UHO_4060_v3.epd"
+        "${CMAKE_BINARY_DIR}/bin/UHO_4060_v3.epd"
+    COMMENT "Copying openings file to build directory..."
+)
+
 
 # Installation targets
 install(TARGETS josiah_engine
