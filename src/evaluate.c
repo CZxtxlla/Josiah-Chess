@@ -127,7 +127,7 @@ const int piece_values[12] = {
 int evaluate(Position* pos) {
     
     // get score value for a given position
-
+    /*
     int phase = get_game_phase(pos);
 
     int score = 0;
@@ -158,10 +158,10 @@ int evaluate(Position* pos) {
             }
         } 
     }
-    
+    */
     int nnue_score = evaluate_nnue_quantized(pos, model);
-    //return nnue_score;
-    
+    return nnue_score;
+    /*
     int hc_score = (pos->side == WHITE) ? score : -score; // flip the score if from the perspective of black
 
     if (abs(hc_score) < 500) {
@@ -172,5 +172,6 @@ int evaluate(Position* pos) {
     else {
         return (hc_score * 3 + nnue_score) >> 2;
     }
+    */
     
 }

@@ -4,8 +4,8 @@ import multiprocessing
 
 # Configure
 ENGINE_PATH = "./Mark_10NNUE768_v6_50_pure" # compiled binary
-NUM_WORKERS = 8
-GAMES_PER_WORKER = 5000
+NUM_WORKERS = 7
+GAMES_PER_WORKER = 40000
 OUTPUT_DIR = "selfplay_data"
 
 
@@ -16,10 +16,17 @@ def run_engine_worker(worker_id):
 
     uci_commands = f"datagen {GAMES_PER_WORKER} {output_file}\nquit\n"
 
-    process = subprocess.Popen([ENGINE_PATH], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True)
+    process = subprocess.Popen([ENGINE_PATH], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, bufsize=1)
 
-    process.communicate(input = uci_commands)
+    process.stdin.write(uci_commands)
+    process.stdin.flush()
 
+    for line in process.stdout:
+        clean = line.strip()
+        if clean:
+            print(f"[Worker {worker_id} {clean}]")
+
+    process.wait()
     print(f"Worker {worker_id} finished successfully")
 
 
