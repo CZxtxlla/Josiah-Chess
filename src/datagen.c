@@ -67,54 +67,17 @@ void extract_features(Position* pos, TrainingData* data) {
 }
 
 
-void* datagen_worker(void* arg) {
-    DatagenArgs* args = (DatagenArgs*)arg;
-    
-    // local setup
-    char filename[256];
-    sprintf(filename, "training_data_thread_%d.bin", args->thread_id);
-    FILE* output_file = fopen(filename, "wb");
-    if (!output_file) {
-        printf("CRITICAL ERROR: Failed to open %s for writing\n", filename);
-        free(args);
-        return NULL;
-    }
-    
-    unsigned int seed = time(NULL) ^ args->thread_id; 
-    
-    printf("Thread %d starting: generating %d games...\n", args->thread_id, args->games_to_play);
-    
-    // game loop
-    for (int i = 0; i < args->games_to_play; i++) {
-        // pick a random opening fen 
-        int random_index = rand_r(&seed) % args->num_openings;
-        char* starting_fen = args->opening_fens[random_index];
-
-        // meat and potatoes
-        play_datagen_game(starting_fen, output_file); 
-        
-        // Progress tracker
-        if ((i + 1) % 20 == 0) {
-            printf("Thread %d progress: %d / %d\n", args->thread_id, i + 1, args->games_to_play);
-        }
-    }
-    
-    fclose(output_file);
-    printf("Thread %d finished!\n", args->thread_id);
-    
-    free(args);
-    return NULL;
-}
-
-
 void run_datagen(char* command) {
-    int num_threads = 1;
-    int games_per_thread = 1000;
+    int games_to_play = 1000;
+    char filename[256] = "training_data.bin";
     
-    // parse command: "datagen 8 5000" (8 threads, 5000 games each)
-    sscanf(command, "datagen %d %d", &num_threads, &games_per_thread);
+    // Parse command: "datagen 5000 output.bin"
+    if (sscanf(command, "datagen %d %255s", &games_to_play, filename) < 1) {
+        printf("Usage: datagen <num_games> [output_file]\n");
+        return;
+    }
     
-    // load openings into mem
+    // load openings into memory
     int num_openings;
     char openings_path[PATH_MAX];
     get_resource_path("UHO_4060_v3.epd", openings_path, sizeof(openings_path));
@@ -126,37 +89,44 @@ void run_datagen(char* command) {
     }
 
     if (num_openings <= 0) {
-        printf("CRITICAL ERROR: No opening positions were loaded from %s\n", openings_path);
-        free(opening_fens);
+        printf("Error: No opening positions were loaded from %s\n", openings_path);
+        if (opening_fens) free(opening_fens);
         return;
     }
     
-    printf("Starting Datagen: %d Threads, %d Games/Thread...\n", num_threads, games_per_thread);
+    FILE* output_file = fopen(filename, "wb");
+    if (!output_file) {
+        printf("Error: Failed to open %s for writing\n", filename);
+        return;
+    }
+
+    unsigned int seed = time(NULL); 
     
-    // Array to hold the thread handles
-    pthread_t* threads = malloc(num_threads * sizeof(pthread_t));
+    printf("Starting Datagen: Generating %d games to %s...\n", games_to_play, filename);
     
-    // spwan threads
-    for (int i = 0; i < num_threads; i++) {
-        DatagenArgs* args = malloc(sizeof(DatagenArgs));
-        args->thread_id = i;
-        args->games_to_play = games_per_thread;
-        args->opening_fens = opening_fens;
-        args->num_openings = num_openings;
+    // game loop
+    for (int i = 0; i < games_to_play; i++) {
+        // pick random opening fen
+        int random_index = rand_r(&seed) % num_openings;
+        char* starting_fen = opening_fens[random_index];
+
+        clear_tt();
+
+        // meat and potatoes
+        play_datagen_game(starting_fen, output_file); 
         
-        // create the thread and tell it to run 'datagen_worker'
-        if (pthread_create(&threads[i], NULL, datagen_worker, args) != 0) {
-            printf("Failed to create thread %d\n", i);
+        // Progress tracker
+        if ((i + 1) % 50 == 0) {
+            printf("Progress: %d / %d\n", i + 1, games_to_play);
         }
     }
     
-    // wait until all threads done
-    for (int i = 0; i < num_threads; i++) {
-        pthread_join(threads[i], NULL);
+    fclose(output_file);
+    printf("Datagen finished successfully!\n");
+    
+    // Cleanup
+    for (int i = 0; i < num_openings; i++) {
+        free(opening_fens[i]);
     }
-    
-    printf("All threads finished generating data\n");
-    
-    free(threads);
     free(opening_fens);
 }

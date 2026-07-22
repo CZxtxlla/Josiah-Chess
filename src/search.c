@@ -10,27 +10,27 @@
 #include <string.h>
 
 // used for 3-fold repetition
-__thread U64 game_history[2048]; // Stores the hash of every position played
-__thread int game_ply = 0;       // How many moves deep into the game we are
+U64 game_history[2048]; // Stores the hash of every position played
+int game_ply = 0;       // How many moves deep into the game we are
 
-__thread int killer_moves[2][MAX_SEARCH_PLY]; // stores 2 killer moves for up to 64 depth plys
-__thread int history_moves[2][64][64]; // [color][from_sq][to_sq]
+int killer_moves[2][MAX_SEARCH_PLY]; // stores 2 killer moves for up to 64 depth plys
+int history_moves[2][64][64]; // [color][from_sq][to_sq]
 
-__thread int pv_length[MAX_SEARCH_PLY]; // Stores the length of the PV for each ply
-__thread int pv_table[MAX_SEARCH_PLY][MAX_SEARCH_PLY]; // stores the actual PV moves: [ply][move index]
+int pv_length[MAX_SEARCH_PLY]; // Stores the length of the PV for each ply
+int pv_table[MAX_SEARCH_PLY][MAX_SEARCH_PLY]; // stores the actual PV moves: [ply][move index]
 
 // used for iterative deepening
-__thread int search_time_limit = 2000; // Stop searching after 2000ms (2 seconds)
-__thread long long search_start_time = 0;
-__thread int time_over = 0;
+int search_time_limit = 2000; // Stop searching after 2000ms (2 seconds)
+long long search_start_time = 0;
+int time_over = 0;
 
 // used for negamax
-__thread int best_move = 0;
-__thread long long nodes_evaluated = 0;
+int best_move = 0;
+long long nodes_evaluated = 0;
 
 int syzygy_enabled = 0; // used for enabling endgame tablebases
 
-__thread int search_node_limit = 0; // 0 means ignore nodes, use time limit
+int search_node_limit = 0; // 0 means ignore nodes, use time limit
 
 // helper to get current time in ms for iterative deepening
 long long get_time_ms() {

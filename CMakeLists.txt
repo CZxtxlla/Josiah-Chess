@@ -84,7 +84,7 @@ add_custom_command(TARGET josiah_engine POST_BUILD
     COMMENT "Copying opening book to build directory..."
 )
 
-# Copy opening book to build directory
+# Copy openings file to build directory
 add_custom_command(TARGET josiah_engine POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_SOURCE_DIR}/UHO_4060_v3.epd"
