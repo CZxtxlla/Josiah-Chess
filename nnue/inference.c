@@ -82,7 +82,7 @@ int flip_piece(int p_type) { return (p_type + 6) % 12; }
 
 static inline int32_t clipped_relu_int(int32_t x) {
     // clipped leaky relu
-    if (x < 0) return 0; //return x / 100;
+    if (x < 0) return 0;
     if (x > 255) return 255;
     return x;
 }
@@ -177,12 +177,7 @@ int evaluate_nnue_quantized(const Position* pos, NNUE* model) {
     }
 
     //unquantize logit, (QA = 255) * (QB = 64) = 16320
-    float stm_win_prob = (float) current_input[0] / 16320.0f;
-
-    if (stm_win_prob < 0.001f) stm_win_prob = 0.001f;
-    if (stm_win_prob > 0.999f) stm_win_prob = 0.999f;
-
-    float centipawns = -400.0f * logf((1.0f / stm_win_prob) - 1.0f);
+    float centipawns = (float) current_input[0] / 16320.0f;
 
     return (int)roundf(centipawns);
 }
