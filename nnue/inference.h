@@ -17,8 +17,8 @@
 typedef struct {
     int in_features;
     int out_features;
-    int16_t* weight; // flattened 1D array of size (in_features * out_features)
-    int16_t* bias; // size out_features
+    int32_t* weight; // flattened 1D array of size (in_features * out_features)
+    int32_t* bias; // size out_features
 } LinearLayer;
 
 typedef struct {
