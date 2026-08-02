@@ -10,11 +10,11 @@ LinearLayer* load_layer(FILE* file) {
     int w_size = layer->in_features * layer->out_features;
     int b_size = layer->out_features;
 
-    layer->weight = (int16_t*)malloc(w_size * sizeof(int16_t));
-    layer->bias = (int16_t*)malloc(b_size * sizeof(int16_t));
+    layer->weight = (int32_t*)malloc(w_size * sizeof(int32_t));
+    layer->bias = (int32_t*)malloc(b_size * sizeof(int32_t));
 
-    fread(layer->weight, sizeof(int16_t), w_size, file);
-    fread(layer->bias, sizeof(int16_t), b_size, file);
+    fread(layer->weight, sizeof(int32_t), w_size, file);
+    fread(layer->bias, sizeof(int32_t), b_size, file);
 
     return layer;
 }
@@ -81,7 +81,8 @@ int flip_sq(int sq) { return sq ^ 56; }
 int flip_piece(int p_type) { return (p_type + 6) % 12; }
 
 static inline int32_t clipped_relu_int(int32_t x) {
-    if (x < 0) return 0;//return x / 100;
+    // clipped leaky relu
+    if (x < 0) return x / 100;
     if (x > 256) return 256;
     return x;
 }
@@ -153,20 +154,11 @@ int evaluate_nnue_quantized(const Position* pos, NNUE* model) {
         LinearLayer* hl = model->hidden_layers[l];
 
         for (int i = 0; i < hl->out_features; i++) {
-            int64_t sum = (int64_t)hl->bias[i] * 256; // scale up the bias
+            int64_t sum = (int64_t)hl->bias[i]; // 64 bit sum to prevent overflow
 
             // matmul
             for (int j = 0; j < hl->in_features; j++) {
                 sum += (int64_t) current_input[j] * hl->weight[j * hl->out_features + i];
-            }
-
-            sum = sum >> 8; // divide by 256
-
-            // apply relu except on final node
-            if (l < model->num_hidden_layers - 1) {
-                next_input[i] = (int)clipped_relu_int(sum);
-            } else {
-                next_input[i] = (int)sum;
             }
         }
 
@@ -177,13 +169,8 @@ int evaluate_nnue_quantized(const Position* pos, NNUE* model) {
         }
     }
 
-    // convert prob to centipawns
-    float stm_win_prob = (float) current_input[0] / 256.0f;
-    
-    if (stm_win_prob < 0.001f) stm_win_prob = 0.001f;
-    if (stm_win_prob > 0.999f) stm_win_prob = 0.999f;
+    //unquantize logit, (QA = 255) * (QB = 64) = 16320
+    float output_logit = (float) current_input[0] / 16320.0f;
 
-    float centipawns = -400.0f * logf((1.0f / stm_win_prob) - 1.0f);
-
-    return (int)roundf(centipawns);
+    return (int)roundf(400.0 * output_logit); // centipawns
 }
