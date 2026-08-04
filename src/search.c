@@ -128,6 +128,7 @@ int score_move(Position* pos, int move, int distance, int hash_move) {
 }
 
 void order_moves(Position* pos, MoveList* list, int distance, int hash_move) {
+    if (list->count < 2) return; // safety
     int scores[256];
 
     // initialize scores array
@@ -316,6 +317,9 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
     int R = 2; // reduction for NMP
 
     int king_type = (pos->side == WHITE) ? K : k;
+    if (pos->pieces[king_type] == 0) {
+        return (pos->side == WHITE) ? -49000 : 49000; // king dead
+    }
     int king_sq = __builtin_ctzll(pos->pieces[king_type]);
     int in_check = is_square_attacked(king_sq, pos->side^1, pos);
 
@@ -474,6 +478,9 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
     //checkmate or stalemate
     if (legal_moves == 0) {
         int king_type = (pos->side == WHITE) ? K : k;
+        if (pos->pieces[king_type] == 0) {
+            return (pos->side == WHITE) ? -49000 : 49000; // king dead
+        }
         int king_sq = __builtin_ctzll(pos->pieces[king_type]);
 
         if (is_square_attacked(king_sq, pos->side^1, pos)) {
@@ -567,6 +574,9 @@ void search_position(Position* pos, int depth) {
         int final_score = negamax(pos, current_depth, 0, -50000, 50000);
 
         if (time_over) {
+            if (best_move_so_far == 0 && best_move != 0) {
+                best_move_so_far = best_move;
+            }
             break;
         }
 
@@ -660,6 +670,7 @@ void play_datagen_game(char* starting_fen, FILE* output_file) {
         int king_sq = __builtin_ctzll(pos.pieces[king_type]);
         int in_check = is_square_attacked(king_sq, pos.side ^ 1, &pos);
         
+        // check for a legal move
         int has_legal_moves = 0;
         for (int i = 0; i < list.count; i++) {
             Position test_pos = pos;
@@ -697,7 +708,7 @@ void play_datagen_game(char* starting_fen, FILE* output_file) {
             break;
         }
         
-        // Stop playing dead-won games
+        // Stop playing dead-won games after 4 turns of extreme score difference
         if (score > 2000) win_adjudicator++;
         else if (score < -2000) win_adjudicator--;
         else win_adjudicator = 0;

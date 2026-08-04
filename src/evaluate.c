@@ -126,8 +126,8 @@ const int piece_values[12] = {
 
 int evaluate(Position* pos) {
     
-    // get score value for a given position
-    /*
+    // get white-absolute score value for a given position
+    
     int phase = get_game_phase(pos);
 
     int score = 0;
@@ -158,10 +158,52 @@ int evaluate(Position* pos) {
             }
         } 
     }
-    */
+    // positional bonuses
+    int positional_bonus = 0;
+
+    // bishop pair bonus
+    if (__builtin_popcountll(pos->pieces[B]) >= 2) positional_bonus += 40;
+    if (__builtin_popcountll(pos->pieces[b]) >= 2) positional_bonus -= 40;
+
+    // rook on 7th rank
+    positional_bonus += __builtin_popcountll(pos->pieces[R] & 0x00FF000000000000ULL) * 20;
+    positional_bonus -= __builtin_popcountll(pos->pieces[r] & 0x000000000000FF00ULL) * 20;
+
+    U64 file_A = 0x0101010101010101ULL; 
+    
+    for (int file = 0; file < 8; file++) {
+        U64 file_mask = file_A << file;
+        
+        // check for pawns
+        int white_pawns = (pos->pieces[P] & file_mask) != 0;
+        int black_pawns = (pos->pieces[p] & file_mask) != 0;
+        
+        // white rooks
+        if ((pos->pieces[R] & file_mask) != 0) {
+            if (!white_pawns && !black_pawns) {
+                positional_bonus += 25; // fully open file (no pawns)
+            } else if (!white_pawns) {
+                positional_bonus += 15; // half open file (only enemy pawns)
+            }
+        }
+        
+        // black rooks
+        if ((pos->pieces[r] & file_mask) != 0) {
+            if (!white_pawns && !black_pawns) {
+                positional_bonus -= 25; //full open
+            } else if (!black_pawns) {
+                positional_bonus -= 15; // half open
+            }
+        }
+    }
+
+    score += positional_bonus;
+    return (pos->side == WHITE) ? score : -score;
+
+    /*
     int nnue_score = evaluate_nnue_quantized(pos, model);
     return nnue_score;
-    /*
+
     int hc_score = (pos->side == WHITE) ? score : -score; // flip the score if from the perspective of black
 
     if (abs(hc_score) < 500) {

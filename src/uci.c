@@ -11,7 +11,7 @@
 #include <time.h>
 #include <limits.h>
 
-char current_game_history[2048] = "";
+char current_game_history[4096] = "";
 int book_enabled = 0;
 
 // helper to get book move if the history is recognized
@@ -168,10 +168,19 @@ int parse_move(char* move_string, Position* pos) {
 }
 
 void parse_position(char* command, Position* pos) {
+    // debug log
+    /*
+    FILE* debug_file = fopen("engine_crash_log.txt", "a");
+    if (debug_file != NULL) {
+        fprintf(debug_file, "Received: %s\n", command);
+        fclose(debug_file);
+    }
+    */
     command += 9; // Skip the word "position "
     char* current_char = command;
 
     game_ply = 0;
+    memset(game_history, 0, sizeof(game_history));
     current_game_history[0] = '\0';
     book_enabled = 0;
 
@@ -193,10 +202,17 @@ void parse_position(char* command, Position* pos) {
     if (current_char != NULL) {
         current_char += 6; // Skip the word "moves "
 
-        strcpy(current_game_history, current_char);
+        strncpy(current_game_history, current_char, sizeof(current_game_history) - 1);
         
         // 3. Loop through all the moves and physically apply them to the board
         while (*current_char) {
+            while (*current_char == ' ') {
+                current_char++;
+            }
+            if (*current_char == '\0') {
+                break;
+            }
+
             int move = parse_move(current_char, pos);
             if (move == 0) break; // Safety catch for bad string parsing
             
@@ -367,7 +383,7 @@ void uci_loop(Position* pos) {
 
     srand(time(NULL));
 
-    char line[2048];
+    char line[4096];
 
     printf("CharlesEngine UCI Interface Started.\n");
 

@@ -44,7 +44,6 @@ int main(int argc, char** argv) {
     init_tt(64); // 64 megabytes
 
     Position board = {0};
-
     char nnue_path[PATH_MAX];
     get_resource_path("nnue/768_quant_9_18_50_1024_v3.nnue", nnue_path, sizeof(nnue_path));
 
@@ -53,7 +52,6 @@ int main(int argc, char** argv) {
         printf("info string ERROR: Could not find 768_quant_9_18_50_1024_v3.nnue at %s!\n", nnue_path);
         exit(1); // Force crash cleanly
     }
-
     parse_fen(&board, START_POSITION);
     
     // Hand control over to the UCI listener

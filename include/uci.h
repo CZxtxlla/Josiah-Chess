@@ -6,7 +6,7 @@
 #define PATH_MAX 4096
 
 
-extern char current_game_history[2048];
+extern char current_game_history[4096];
 
 void get_resource_path(const char* filename, char* out_path, size_t out_size);
 
