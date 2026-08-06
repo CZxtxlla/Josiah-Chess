@@ -125,7 +125,7 @@ const int piece_values[12] = {
 };
 
 int evaluate(Position* pos) {
-    
+    /*
     // get white-absolute score value for a given position
     
     int phase = get_game_phase(pos);
@@ -200,10 +200,10 @@ int evaluate(Position* pos) {
     score += positional_bonus;
     return (pos->side == WHITE) ? score : -score;
 
-    /*
+    */
     int nnue_score = evaluate_nnue_quantized(pos, model);
     return nnue_score;
-
+    /*
     int hc_score = (pos->side == WHITE) ? score : -score; // flip the score if from the perspective of black
 
     if (abs(hc_score) < 500) {

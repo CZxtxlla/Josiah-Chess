@@ -113,7 +113,7 @@ void parse_fen(Position* pos, const char* fen) {
 
     pos->hash_key = generate_hash(pos);
 
-    //init_accumulator(pos, model);
+    init_accumulator(pos, model);
 }
 
 void print_board(const Position* pos) {
@@ -229,7 +229,7 @@ int make_move(Position* pos, int move) {
             }
             pop_bit(pos->pieces[captured_piece], to_sq);
 
-            //update_accumulator(pos, model, captured_piece, to_sq, 0);
+            update_accumulator(pos, model, captured_piece, to_sq, 0);
 
             break; // Found the victim, break out
         }
@@ -245,8 +245,8 @@ int make_move(Position* pos, int move) {
     set_bit(pos->pieces[moving_piece], to_sq);
 
     // move the accumulator piece
-    //update_accumulator(pos, model, moving_piece, from_sq, 0);
-    //update_accumulator(pos, model, moving_piece, to_sq, 1);
+    update_accumulator(pos, model, moving_piece, from_sq, 0);
+    update_accumulator(pos, model, moving_piece, to_sq, 1);
 
     // move the hash piece
     pos->hash_key ^= piece_keys[moving_piece][from_sq];
@@ -260,7 +260,7 @@ int make_move(Position* pos, int move) {
         pop_bit(pos->pieces[captured_pawn], captured_pawn_sq); 
 
         // remove the en passant captured pawn
-        //update_accumulator(pos, model, captured_pawn, captured_pawn_sq, 0);
+        update_accumulator(pos, model, captured_pawn, captured_pawn_sq, 0);
 
         // hash out the en passant capture
         pos->hash_key ^= piece_keys[captured_pawn][captured_pawn_sq];
@@ -272,8 +272,8 @@ int make_move(Position* pos, int move) {
         set_bit(pos->pieces[promoted], to_sq);
 
         // remove pawn and add promoted piece in accumulator
-        //update_accumulator(pos, model, pawn_type, to_sq, 0);
-        //update_accumulator(pos, model, promoted, to_sq, 1);
+        update_accumulator(pos, model, pawn_type, to_sq, 0);
+        update_accumulator(pos, model, promoted, to_sq, 1);
 
         pos->hash_key ^= piece_keys[pawn_type][to_sq]; // hash out the moved pawn
         pos->hash_key ^= piece_keys[promoted][to_sq];  // hash in the promoted piece
@@ -284,32 +284,32 @@ int make_move(Position* pos, int move) {
             // white kingside
             pop_bit(pos->pieces[R], H1);
             set_bit(pos->pieces[R], F1);
-            //update_accumulator(pos, model, R, H1, 0); 
-            //update_accumulator(pos, model, R, F1, 1);
+            update_accumulator(pos, model, R, H1, 0); 
+            update_accumulator(pos, model, R, F1, 1);
             pos->hash_key ^= piece_keys[R][H1]; 
             pos->hash_key ^= piece_keys[R][F1];
         } else if (to_sq == C1) {
             // white queenside
             pop_bit(pos->pieces[R], A1); 
             set_bit(pos->pieces[R], D1);
-            //update_accumulator(pos, model, R, A1, 0); 
-            //update_accumulator(pos, model, R, D1, 1);
+            update_accumulator(pos, model, R, A1, 0); 
+            update_accumulator(pos, model, R, D1, 1);
             pos->hash_key ^= piece_keys[R][A1]; 
             pos->hash_key ^= piece_keys[R][D1];
         } else if (to_sq == G8) {
             // black kingside
             pop_bit(pos->pieces[r], H8); 
             set_bit(pos->pieces[r], F8);
-            //update_accumulator(pos, model, r, H8, 0); 
-            //update_accumulator(pos, model, r, F8, 1);
+            update_accumulator(pos, model, r, H8, 0); 
+            update_accumulator(pos, model, r, F8, 1);
             pos->hash_key ^= piece_keys[r][H8]; 
             pos->hash_key ^= piece_keys[r][F8];
         } else if (to_sq == C8) {
             // black queenside
             pop_bit(pos->pieces[r], A8); 
             set_bit(pos->pieces[r], D8);
-            //update_accumulator(pos, model, r, A8, 0); 
-            //update_accumulator(pos, model, r, D8, 1);
+            update_accumulator(pos, model, r, A8, 0); 
+            update_accumulator(pos, model, r, D8, 1);
             pos->hash_key ^= piece_keys[r][A8]; 
             pos->hash_key ^= piece_keys[r][D8];
         }

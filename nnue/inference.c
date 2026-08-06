@@ -177,7 +177,7 @@ int evaluate_nnue_quantized(const Position* pos, NNUE* model) {
     }
 
     //unquantize logit, (QA = 255) * (QB = 64) = 16320
-    float centipawns = (float) current_input[0] / 16320.0f;
+    float logit = (float) current_input[0] / 16320.0f;
 
-    return (int)roundf(centipawns);
+    return (int)roundf(logit);
 }
