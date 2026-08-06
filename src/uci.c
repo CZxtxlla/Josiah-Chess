@@ -81,6 +81,11 @@ void parse_go(char* command, Position* pos) {
     
     // If GUI specifically asks for fixed depth, do it
     if ((ptr = strstr(command, "depth"))) depth = atoi(ptr + 6); 
+    if ((ptr = strstr(command, "nodes"))) {
+        search_node_limit = atoll(ptr + 6);
+        search_time_limit = 999999; 
+    }
+    else search_node_limit = 0;
 
     // Determine whose clock we are looking at
     int time_left = (pos->side == WHITE) ? wtime : btime;
