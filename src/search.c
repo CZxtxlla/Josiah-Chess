@@ -736,8 +736,10 @@ void play_datagen_game(char* starting_fen, FILE* output_file) {
         
         // Only save data if it's a quiet position and we haven't hit tablebases (< 6 pieces)
         int piece_count = __builtin_popcountll(pos.occupancy[WHITE] | pos.occupancy[BLACK]);
+
+        int is_promotion = get_move_promoted(best_move) != 0;
         
-        if (!in_check && !is_capture && piece_count > 5 && positions_saved < 1000) {
+        if (!in_check && !is_capture && !is_promotion && piece_count > 5 && positions_saved < 1000) {
             extract_features(&pos, &game_data[positions_saved]);
             game_data[positions_saved].eval = score;
             positions_saved++;
