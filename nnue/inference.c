@@ -129,7 +129,6 @@ void update_accumulator(Position* pos, NNUE* model, int piece, int sq, int is_ad
 }
 
 // evaluation given accumulators
-
 // for quantized network
 int evaluate_nnue_quantized(const Position* pos, NNUE* model) {
     int current_input[ACC_SIZE * 2];

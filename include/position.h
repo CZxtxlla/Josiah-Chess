@@ -2,6 +2,7 @@
 #define POSITION_H
 
 #include "types.h"
+#include <stdalign.h>
 
 // castling rights (0001 for white kingside, 0010 for white queenside, ...)
 enum {
@@ -15,8 +16,8 @@ enum {
 
 // NNUE Accumulator
 typedef struct {
-    int32_t white[ACC_SIZE];
-    int32_t black[ACC_SIZE];
+    alignas(32) int32_t white[ACC_SIZE];
+    alignas(32) int32_t black[ACC_SIZE];
 } Accumulator;
 
 typedef struct {

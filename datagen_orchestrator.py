@@ -3,9 +3,9 @@ import os
 import multiprocessing
 
 # Configure
-ENGINE_PATH = "./Mark_10NNUE768_v6_50_pure" # compiled binary
-NUM_WORKERS = 7
-GAMES_PER_WORKER = 40000
+ENGINE_PATH = "./Mark_10NNUE_v1" # compiled binary
+NUM_WORKERS = 10
+GAMES_PER_WORKER = 30000
 OUTPUT_DIR = "selfplay_data"
 
 
