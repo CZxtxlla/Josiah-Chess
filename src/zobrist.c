@@ -133,7 +133,6 @@ int read_hash(U64 key, int depth, int alpha, int beta, int* return_score, int* r
             int score = hash_table[index].score;
             int flag = hash_table[index].flag;
             
-            // 4. Does the memory fit inside our Alpha-Beta window?
             if (flag == HASH_EXACT) {
                 *return_score = score;
                 return 1;

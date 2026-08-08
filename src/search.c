@@ -59,7 +59,7 @@ int is_repetition(Position* pos) {
     return 0;
 }
 
-// helper to check if there's a pawn to prevent zugzwang
+// helper to check if there's a non pawn to prevent zugzwang
 int has_non_pawn_material(Position* pos) {
     if (pos->side == WHITE) {
         return pos->pieces[N] || pos->pieces[B] || pos->pieces[R] || pos->pieces[Q];
@@ -91,7 +91,7 @@ int is_move_valid(Position* pos, int move) {
 
 int score_move(Position* pos, int move, int distance, int hash_move) {
     if (move == hash_move) {
-        return 40000; // hashe table moves are really good
+        return 40000; // hash table moves are really good
     }
 
     if (get_move_promoted(move)) {
@@ -297,16 +297,16 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
         if (wdl != TB_RESULT_FAILED) {
             int tb_score = 0;
             
-            // Translate Fathom's win/loss/draw into C-hess scores
+            // Translate Fathom's win/loss/draw into scores for the engine
             if (wdl == TB_WIN) {
-                tb_score = 49000 - distance;  // Exact mate score formula from your engine
+                tb_score = 49000 - distance;
             } else if (wdl == TB_LOSS) {
                 tb_score = -49000 + distance;
             } else if (wdl == TB_DRAW || wdl == TB_CURSED_WIN || wdl == TB_BLESSED_LOSS) {
                 tb_score = 0; // Draw
             }
 
-            // Save this tablebase evaluation to our TT so we don't have to probe it again
+            // Save this tablebase evaluation to TT so we don't have to probe it again
             write_hash(pos->hash_key, depth, tb_score, HASH_EXACT, 0);
             return tb_score;
         }

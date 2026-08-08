@@ -409,6 +409,29 @@ hash ^= zobrist_pieces[WHITE_PAWN][e2]; // remove piece from origin
 hash ^= zobrist_pieces[WHITE_PAWN][e4]; // place piece on destination
 ```
 
+Ok now we have a way to *almost* uniquely assign a board position to an index for easy lookup, but what are we actually storing in the table? Each entry consists of the following:
+
+```c
+typedef struct {
+    U64 key; // the zobrist hash
+    int score; // the evaluation score
+    int move; // the best move found 
+    uint8_t depth; // how deep the search was
+    uint8_t flag; // exact, alpha, or beta
+} TTentry;
+```
+
+At the end of the negamax function, before propogating the score up the tree, we save an entry consisting with the current board position as our key. The flag is determined on what window it falls in. 
+`HASH_EXACT` is given if when the search is completed, the final score falls strictly between alpha and beta. This means that no pruning occured, and thus we have the exact score.
+`HASH_BETA` is given if during the search, a move was found that was so good that the score was greater than or equal to beta. This means the engine stopped searching because a beta cutoff was achieved, and so the score recorded is a lower bound, since there could be better moves on this branch that we just didn't search.
+`HASH_ALPHA` is given if the engine searched every single move and none of them raised alpha, so the score stored is an upper bound, i.e. the position is at best this score.
+
+Now that we have these entries stored, we can look up an entry corresponding to a position efficiently using the previosuly talked about zobrist hash. It's important though to only take the value stored when it is relevant. Firstly, we only care about an entry if the depth is greater than or equal to the depth we are searching at. If we are searching at a greater depth than the TT entry, then it is not accurate enough so we ignore it. 
+Assuming the depth is large enough, we check the flag. 
+If the flag is `HASH_EXACT`, then we have the exact score and can return that instead of performing the rest of the negamax.
+If the flag is `HASH_BETA`, then we know that the score is a lower bound, and thus if the score is greater than or equal to our current beta, then we know if the whole negamax were to perform, a beta cutoff would happen and thus we can stop here and just return beta.
+If the flag is `HASH_ALPHA`, we know that the score is an upper bound. Thus if the score is less than or equal to our current alpha, then the branch is useless because it will not improve our current position. Thus we can stop the search here and just return alpha.
+
 ### Null Move Pruning
 
 [Null Move Pruning](https://www.chessprogramming.org/Null_Move_Pruning).
