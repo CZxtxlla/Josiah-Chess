@@ -434,7 +434,60 @@ If the flag is `HASH_ALPHA`, we know that the score is an upper bound. Thus if t
 
 ### Null Move Pruning
 
-[Null Move Pruning](https://www.chessprogramming.org/Null_Move_Pruning).
+The following is the implementation for **null move pruning**. Null move pruning essentially relies on the fact that it's an advantage for it to be your turn to move, and it uses this to save depth in the search tree.
+
+```c
+// NMP implementation
+
+int R = 2; // reduction for NMP
+
+int king_type = (pos->side == WHITE) ? K : k;
+if (pos->pieces[king_type] == 0) {
+    return (pos->side == WHITE) ? -49000 : 49000; // king dead
+}
+int king_sq = __builtin_ctzll(pos->pieces[king_type]);
+int in_check = is_square_attacked(king_sq, pos->side^1, pos);
+
+if (depth >= R + 1 && distance > 0 && !in_check && has_non_pawn_material(pos)) {
+
+    // backup the en passant
+    int ep_backup = pos->en_passant; 
+
+    if (ep_backup != -1) {
+        pos->hash_key ^= en_passant_keys[ep_backup % 8]; // remove en passant in the hash
+    }
+    pos->hash_key ^= side_key; // flip turn in the hash
+    
+    pos->en_passant = -1; 
+    pos->side ^= 1;
+
+    // (-beta, -beta + 1) window
+    int null_score = -negamax(pos, depth - 1 - R, distance + 1, -beta, -beta + 1);
+
+    pos->side ^= 1;
+    pos->en_passant = ep_backup;
+
+    // hash back in the restored state
+    pos->hash_key ^= side_key;
+    if (ep_backup != -1) {
+        pos->hash_key ^= en_passant_keys[ep_backup % 8];
+    }
+
+    if (time_over) return 0;
+
+    // cutoff, move so good opponent couldn't beat it with a free move
+    if (null_score >= beta) {
+        return beta; 
+    }
+}
+```
+
+There are some important safety checks that are necessary before perfoming a null move. There must be enough depth remaining to actually perform the reduced search, we must not be at the root node, the king must not be in check, and there must be some non-pawn material. This last one is necessary to avoid [Zugzwang](https://en.wikipedia.org/wiki/Zugzwang) in endgames where having the right to move might actually be a disadvantage and not an advantage.
+Assuming all those conditions, we first perform a null move by flipping the side to move.
+
+
+
+
 
 ### Principle Variation Search
 
