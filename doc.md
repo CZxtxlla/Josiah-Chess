@@ -483,15 +483,13 @@ if (depth >= R + 1 && distance > 0 && !in_check && has_non_pawn_material(pos)) {
 ```
 
 There are some important safety checks that are necessary before perfoming a null move. There must be enough depth remaining to actually perform the reduced search, we must not be at the root node, the king must not be in check, and there must be some non-pawn material. This last one is necessary to avoid [Zugzwang](https://en.wikipedia.org/wiki/Zugzwang) in endgames where having the right to move might actually be a disadvantage and not an advantage.
-Assuming all those conditions, we first perform a null move by flipping the side to move.
+Assuming all those conditions, we first perform a null move by flipping the side to move. Now we perform a search from this position (from the opoonents point of view). This search is at a reduced depth (R less plies) and this is where the majority of the timesave comes. We also don't care how good the position is, we just want to know if it is better than beta so we can cause a cutoff, which is why we search with such a small window. 
+If the position is still better than beta, then we know this branch will never happen and we can ignore it completely without doing a full search. Otherwise, we have to do a standard search like usual.
 
+### Principle Variation Search and Late Move Reduction
 
-
-
-
-### Principle Variation Search
-
-### Late Move Reduction
+Principle variation search relies on the fact that the best move is most likely to be the first one checked (due to efficient move ordering). For the first move in the ordered list, a full window negamax search is performed to get an accurate score for it, and for the rest of the moves we will search with a null window, simply to check if they are potentially better than the first move, before doing a full window search (which would be much slower).
+Additionally, for moves that are late in the list, quiet, and at a decent depth we perform a reduction as well as the null window, really banking on the fact that these moves are worse than the first few.
 
 ## 3. Results
 
