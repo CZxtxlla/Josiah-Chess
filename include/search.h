@@ -37,7 +37,7 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta);
 void search_position(Position* pos, int depth);
 
 // base case for negamax that continues until there are no captures
-int quiescence(Position* pos, int alpha, int beta);
+int quiescence(Position* pos, int alpha, int beta, int qdepth);
 
 // for datagen
 void play_datagen_game(char* starting_fen, FILE* output_file);
