@@ -2,6 +2,7 @@
 #include "../include/uci.h"
 #include "../include/search.h"
 #include "../include/zobrist.h"
+#include <unistd.h>
 
 
 #define _POSIX_C_SOURCE 200809L
@@ -100,7 +101,7 @@ void run_datagen(char* command) {
         return;
     }
 
-    unsigned int seed = time(NULL); 
+    unsigned int seed = time(NULL) ^ (getpid() << 16) ^ (unsigned int)(uintptr_t)&seed;
     
     printf("Starting Datagen: Generating %d games to %s...\n", games_to_play, filename);
     
