@@ -7,6 +7,8 @@
 
 #define MAX_SEARCH_PLY 128
 
+extern int thread_count; // used for lazy smp
+
 extern U64 game_history[2048];
 extern int game_ply;
 

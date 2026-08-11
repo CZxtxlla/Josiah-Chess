@@ -5,6 +5,7 @@
 #include "../include/uci.h"
 #include "../include/zobrist.h"
 #include "../syzygy/tbprobe.h"
+#include "../include/search.h"
 #include <limits.h>
 #include <string.h>
 #include <unistd.h>
@@ -42,6 +43,8 @@ int main(int argc, char** argv) {
     
     init_zobrist();
     init_tt(64); // 64 megabytes
+
+    thread_count = 1;
 
     Position board = {0};
     char nnue_path[PATH_MAX];
