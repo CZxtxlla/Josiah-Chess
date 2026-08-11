@@ -173,14 +173,6 @@ int parse_move(char* move_string, Position* pos) {
 }
 
 void parse_position(char* command, Position* pos) {
-    // debug log
-    /*
-    FILE* debug_file = fopen("engine_crash_log.txt", "a");
-    if (debug_file != NULL) {
-        fprintf(debug_file, "Received: %s\n", command);
-        fclose(debug_file);
-    }
-    */
     command += 9; // Skip the word "position "
     char* current_char = command;
 
@@ -189,7 +181,7 @@ void parse_position(char* command, Position* pos) {
     current_game_history[0] = '\0';
     book_enabled = 0;
 
-    // 1. Set the initial board state (Either startpos or a custom FEN)
+    // set boardstate
     if (strncmp(command, "startpos", 8) == 0) {
         parse_fen(pos, START_POSITION);
         current_char += 8;
@@ -201,7 +193,6 @@ void parse_position(char* command, Position* pos) {
 
     init_accumulator(pos, model);
 
-    // 2. Look ahead in the string to see if the word "moves" exists
     current_char = strstr(command, "moves");
 
     if (current_char != NULL) {
@@ -209,7 +200,7 @@ void parse_position(char* command, Position* pos) {
 
         strncpy(current_game_history, current_char, sizeof(current_game_history) - 1);
         
-        // 3. Loop through all the moves and physically apply them to the board
+        // apply moves to board
         while (*current_char) {
             while (*current_char == ' ') {
                 current_char++;

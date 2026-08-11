@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-// ------ zobrust hash numbers stuff -------
+// ------ zobrist hash numbers stuff -------
 
 U64 random_state_xor = 1804289383ULL; // random just non-zero
 
