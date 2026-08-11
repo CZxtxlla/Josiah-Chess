@@ -4,7 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <math.h>
 #include <string.h>
 #include <ctype.h>
 #include "../include/position.h"

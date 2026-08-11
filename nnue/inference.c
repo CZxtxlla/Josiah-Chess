@@ -1,11 +1,16 @@
 #include "inference.h"
+#include <math.h>
 
 NNUE* model = NULL;
 
 LinearLayer* load_layer(FILE* file) {
     LinearLayer* layer = (LinearLayer*)malloc(sizeof(LinearLayer));
-    if (fread(&layer->in_features, sizeof(int), 1, file) != 1) return NULL;
-    if (fread(&layer->out_features, sizeof(int), 1, file) != 1) return NULL;
+    if (fread(&layer->in_features, sizeof(int), 1, file) != 1) {
+        return NULL;
+    }
+    if (fread(&layer->out_features, sizeof(int), 1, file) != 1) {
+        return NULL;
+    }
 
     int w_size = layer->in_features * layer->out_features;
     int b_size = layer->out_features;
@@ -62,7 +67,7 @@ void free_nnue(NNUE* model) {
             free_layer(model->hidden_layers[i]);
         }
 
-        free(model->hidden_layers);
+        free((void*)model->hidden_layers);
         free(model);
     }
 }
@@ -70,20 +75,28 @@ void free_nnue(NNUE* model) {
 // inference
 
 
-static int char_to_piece(char c) {
-    switch (c) {
+static int char_to_piece(char character) {
+    switch (character) {
         case 'P': return 0; case 'N': return 1; case 'B': return 2; case 'R': return 3; case 'Q': return 4; case 'K': return 5;
         case 'p': return 6; case 'n': return 7; case 'b': return 8; case 'r': return 9; case 'q': return 10; case 'k': return 11;
         default: return -1;
     }
 }
-int flip_sq(int sq) { return sq ^ 56; }
-int flip_piece(int p_type) { return (p_type + 6) % 12; }
+int flip_sq(int sq) { 
+    return sq ^ 56; 
+}
+int flip_piece(int p_type) { 
+    return (p_type + 6) % 12; 
+}
 
 static inline int32_t clipped_relu_int(int32_t x) {
     // clipped leaky relu
-    if (x < 0) return 0;
-    if (x > 255) return 255;
+    if (x < 0) {
+        return 0;
+    }
+    if (x > 255) {
+        return 255;
+    }
     return x;
 }
 
@@ -157,7 +170,7 @@ int evaluate_nnue_quantized(const Position* pos, NNUE* model) {
 
             // matmul
             for (int j = 0; j < hl->in_features; j++) {
-                sum += (int64_t) current_input[j] * hl->weight[j * hl->out_features + i];
+                sum += (int64_t) current_input[j] * hl->weight[(j * hl->out_features) + i];
             }
 
             if (l < model->num_hidden_layers - 1) {
