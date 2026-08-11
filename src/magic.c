@@ -72,7 +72,7 @@ U64 find_magic_number(int square, int relevant_bits, int is_bishop) {
 
         // Test the magic number against every permutation
         for (int index = 0; index < occupancy_indices; index++) {
-            // The magic hashing formula!
+            // The magic hashing formula
             int magic_index = (occupancies[index] * candidate) >> (64 - relevant_bits);
 
             // If the slot is completely empty, claim it
@@ -86,7 +86,6 @@ U64 find_magic_number(int square, int relevant_bits, int is_bishop) {
             }
         }
 
-        // If it didn't fail, we found a perfect magic number!
         if (!fail) {
             return candidate;
         }
@@ -111,7 +110,7 @@ void init_sliders() {
         for (int i = 0; i < r_perm; i++) {
             U64 occ = set_occupancy(i, r_bits, rook_masks[square]);
 
-            // The Magic Hash Formula
+            // magic hash formula
             int magic_index = (occ * rook_magics[square]) >> (64 - r_bits);
 
             rook_attacks[square][magic_index] = rook_attacks_cast(square, occ);
@@ -126,16 +125,13 @@ void init_sliders() {
         for (int i = 0; i < b_perm; i++) {
             U64 occ = set_occupancy(i, b_bits, bishop_masks[square]);
 
-            // The Magic Hash Formula
+            // The magic hash formula
             int magic_index = (occ * bishop_magics[square]) >> (64 - b_bits);
 
             bishop_attacks[square][magic_index] = bishop_attacks_cast(square, occ);
         }
     }
 }
-
-
-// ------ super fast O(1) table lookups ------
 
 U64 get_rook_attacks(int square, U64 occupancy) {
 
@@ -145,8 +141,6 @@ U64 get_rook_attacks(int square, U64 occupancy) {
     int magic_index = (relevant_occupancy * rook_magics[square]) >> (64 - r_bits);
 
     return rook_attacks[square][magic_index];
-
-    //return rook_attacks_cast(square, occupancy);
 }
 
 U64 get_bishop_attacks(int square, U64 occupancy) {
@@ -157,8 +151,6 @@ U64 get_bishop_attacks(int square, U64 occupancy) {
     int magic_index = (relevant_occupancy * bishop_magics[square]) >> (64 - b_bits);
     
     return bishop_attacks[square][magic_index];
-    
-    //return bishop_attacks_cast(square, occupancy);
 }
 
 U64 get_queen_attacks(int square, U64 occupancy) {
