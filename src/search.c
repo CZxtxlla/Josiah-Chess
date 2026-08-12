@@ -732,17 +732,19 @@ void play_datagen_game(char* starting_fen, FILE* output_file) {
             fprintf(stderr, "info string datagen aborted: search produced an invalid move\n");
             break;
         }
-        
+
+        int white_relative_score = (pos.side == WHITE) ? score : -score;
+
         // Stop playing dead-won games after 4 turns of extreme score difference
-        if (score > 2000) win_adjudicator++;
-        else if (score < -2000) win_adjudicator--;
+        if (white_relative_score > 2000) win_adjudicator++;
+        else if (white_relative_score < -2000) win_adjudicator--;
         else win_adjudicator = 0;
         
         if (win_adjudicator >= 4) {
-            game_result = (pos.side == WHITE) ? 1 : -1;
+            game_result = 1;
             break;
         } else if (win_adjudicator <= -4) {
-            game_result = (pos.side == WHITE) ? -1 : 1;
+            game_result = -1;
             break;
         }
         
