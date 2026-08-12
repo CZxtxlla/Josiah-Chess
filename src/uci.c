@@ -100,6 +100,7 @@ void parse_go(char* command, Position* pos) {
     int depth = 64; // massive depth so the clock breaks
     int wtime = -1, btime = -1, winc = 0, binc = 0, movestogo = 30;
     int movetime = -1;
+    int fixed_search = 0;
 
     char* ptr;
     
@@ -124,33 +125,42 @@ void parse_go(char* command, Position* pos) {
     }
     
     // fixed depth
-    if ((ptr = strstr(command, "depth"))) depth = atoi(ptr + 6); 
+    if ((ptr = strstr(command, "depth"))) {
+        depth = atoi(ptr + 6); 
+        search_time_limit = 999999; 
+        fixed_search = 1;
+    }
     if ((ptr = strstr(command, "nodes"))) {
         search_node_limit = atoll(ptr + 6);
         search_time_limit = 999999; 
+        fixed_search = 1;
     }
     else search_node_limit = 0;
 
-    // Determine whose clock we are looking at
-    int time_left = (pos->side == WHITE) ? wtime : btime;
-    int increment = (pos->side == WHITE) ? winc : binc;
+    if (!fixed_search) {
+        // Determine whose clock we are looking at
+        int time_left = (pos->side == WHITE) ? wtime : btime;
+        int increment = (pos->side == WHITE) ? winc : binc;
 
-    if (movetime != -1) {
-        search_time_limit = movetime - 50; 
-    } else if (time_left != -1) {
-        // divide remaining time by the moves we think are left, plus half the increment
-        search_time_limit = (time_left / movestogo) + (increment / 2);
-        
-        // Safety Buffer, 50 ms
-        if (search_time_limit > time_left - 50) {
-            search_time_limit = time_left - 50;
+        if (movetime != -1) {
+            search_time_limit = movetime - 50; 
+        } else if (time_left != -1) {
+            // divide remaining time by the moves we think are left, plus half the increment
+            search_time_limit = (time_left / movestogo) + (increment / 2);
+            
+            // Safety Buffer, 50 ms
+            if (search_time_limit > time_left - 50) {
+                search_time_limit = time_left - 50;
+            }
+            
+            // If at 0, give the engine 10ms to find any move
+            if (search_time_limit <= 0) search_time_limit = 10;
+        } else {
+            // If no time was sent, default to 2 seconds
+            search_time_limit = 2000; 
         }
-        
-        // If we are literally at 0, give the engine 10ms to find ANY move
-        if (search_time_limit <= 0) search_time_limit = 10;
     } else {
-        // If no time was sent, just think for 2 seconds
-        search_time_limit = 2000; 
+        search_time_limit = 999999;
     }
 
     if (search_time_limit <= 0) search_time_limit = 10;
@@ -168,9 +178,6 @@ void parse_go(char* command, Position* pos) {
 
     // launch threads
     lazy_smp(pos, depth, THREAD_COUNT - 1);
-
-    // iterative deepening
-    //search_position(pos, depth);
 }
 
 

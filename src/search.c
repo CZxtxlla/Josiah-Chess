@@ -589,12 +589,7 @@ void* search_worker(void* arg) {
         }
     }
 
-    int start_depth = 1;
-    if (ts.id != 0) {
-        start_depth = 1 + ts.id; 
-    }
-
-    for (int current_depth = start_depth; current_depth <= target_depth; current_depth++) {
+    for (int current_depth = 1; current_depth <= target_depth; current_depth++) {
         
         int final_score = negamax(&local_pos, current_depth, 0, -50000, 50000, &ts);
 
