@@ -44,8 +44,6 @@ int main(int argc, char** argv) {
     init_zobrist();
     init_tt(64); // 64 megabytes
 
-    THREAD_COUNT = 0;
-
     Position board = {0};
     char nnue_path[PATH_MAX];
     get_resource_path("nnue/768_quant_50_1024_v2.nnue", nnue_path, sizeof(nnue_path));

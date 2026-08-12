@@ -12,6 +12,8 @@
 #include <limits.h>
 #include <pthread.h>
 
+int THREAD_COUNT = 1;
+
 char current_game_history[4096] = "";
 int book_enabled = 0;
 
@@ -62,16 +64,19 @@ int get_book_move(char* history, Position* pos) {
     return parse_move(chosen_move_str, pos);
 }
 
-void lazy_smp(Position* pos, int num_helpers) {
+void lazy_smp(Position* pos, int target_depth, int num_helpers) {
     time_over = 0;
 
-    pthread_t helpers[num_helpers];
-    ThreadData helper_data[num_helpers];
+    int alloc = (num_helpers > 0) ? num_helpers : 1;
+
+    pthread_t helpers[alloc];
+    ThreadData helper_data[alloc];
 
     // helper threads
     for (int i = 0; i < num_helpers; i++) {
         helper_data[i].thread_id = i + 1;
         helper_data[i].pos = *pos;
+        helper_data[i].target_depth = target_depth;
 
         pthread_create(&helpers[i], NULL, search_worker, &helper_data[i]);
     }
@@ -79,6 +84,7 @@ void lazy_smp(Position* pos, int num_helpers) {
     ThreadData main_data;
     main_data.thread_id = 0;
     main_data.pos = *pos;
+    main_data.target_depth = target_depth;
     
     search_worker(&main_data);
 
@@ -158,9 +164,10 @@ void parse_go(char* command, Position* pos) {
         fflush(stdout);
         return; 
     }
+    search_start_time = get_time_ms();
 
     // launch threads
-    lazy_smp(pos, THREAD_COUNT);
+    lazy_smp(pos, depth, THREAD_COUNT - 1);
 
     // iterative deepening
     //search_position(pos, depth);
@@ -295,23 +302,29 @@ void run_benchmark(char* command, Position* pos) {
     // disable the clock
     search_time_limit = 99999999; 
     time_over = 0;
-    nodes_evaluated = 0;
     search_start_time = get_time_ms();
+
+    ThreadState ts;
+    memset(&ts, 0, sizeof(ThreadState));
+    ts.id = 0; 
+    
+    // Copy the global game history so repetition detection works in bench
+    for(int i = 0; i < game_ply; i++) {
+        ts.search_history[i] = game_history[i];
+    }
+    ts.search_ply = game_ply;
 
     int best_move_so_far = 0;
     long long total_nodes = 0;
 
-    memset(killer_moves, 0, sizeof(killer_moves));
-    memset(history_moves, 0, sizeof(history_moves));
-
     // run iterative deepening loop
     for (int current_depth = 1; current_depth <= target_depth; current_depth++) {
-        long long nodes_before = nodes_evaluated;
-        int final_score = negamax(pos, current_depth, 0, -50000, 50000);
-        best_move_so_far = best_move;
+        long long nodes_before = ts.nodes_evaluated;
+        int final_score = negamax(pos, current_depth, 0, -50000, 50000, &ts);
+        best_move_so_far = ts.best_move;
         
         long long duration = get_time_ms() - search_start_time;
-        long long depth_nodes = nodes_evaluated - nodes_before;
+        long long depth_nodes = ts.nodes_evaluated - nodes_before;
         total_nodes += depth_nodes;
         
         // print table row for each depth
@@ -444,8 +457,6 @@ void uci_loop(Position* pos) {
         } 
         else if (strcmp(line, "ucinewgame") == 0) {
             clear_tt();
-            memset(killer_moves, 0, sizeof(killer_moves));
-            memset(history_moves, 0, sizeof(history_moves));
             parse_fen(pos, START_POSITION);
         }
         else if (strncmp(line, "position", 8) == 0) {
