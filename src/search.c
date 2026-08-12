@@ -529,6 +529,14 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
     return alpha;
 }
 
+void* search_worker(void* arg) {
+    ThreadData* data = (ThreadData*)arg;
+
+    Position local_pos = data->pos;
+
+    
+}
+
 void search_position(Position* pos, int depth) {
     search_start_time = get_time_ms();
     time_over = 0;

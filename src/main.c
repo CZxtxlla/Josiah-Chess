@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
     init_zobrist();
     init_tt(64); // 64 megabytes
 
-    thread_count = 1;
+    THREAD_COUNT = 0;
 
     Position board = {0};
     char nnue_path[PATH_MAX];

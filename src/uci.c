@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <limits.h>
+#include <pthread.h>
 
 char current_game_history[4096] = "";
 int book_enabled = 0;
@@ -61,6 +62,33 @@ int get_book_move(char* history, Position* pos) {
     return parse_move(chosen_move_str, pos);
 }
 
+void lazy_smp(Position* pos, int num_helpers) {
+    time_over = 0;
+
+    pthread_t helpers[num_helpers];
+    ThreadData helper_data[num_helpers];
+
+    // helper threads
+    for (int i = 0; i < num_helpers; i++) {
+        helper_data[i].thread_id = i + 1;
+        helper_data[i].pos = *pos;
+
+        pthread_create(&helpers[i], NULL, search_worker, &helper_data[i]);
+    }
+    // main thread
+    ThreadData main_data;
+    main_data.thread_id = 0;
+    main_data.pos = *pos;
+    
+    search_worker(&main_data);
+
+    time_over = 1;
+
+    for (int i = 0; i < num_helpers; i++) {
+        pthread_join(helpers[i], NULL);
+    }
+}
+
 
 void parse_go(char* command, Position* pos) {
     int depth = 64; // massive depth so the clock breaks
@@ -70,16 +98,26 @@ void parse_go(char* command, Position* pos) {
     char* ptr;
     
     // Extract values
-    if ((ptr = strstr(command, "wtime"))) wtime = atoi(ptr + 6);
-    if ((ptr = strstr(command, "btime"))) btime = atoi(ptr + 6);
-    if ((ptr = strstr(command, "winc"))) winc = atoi(ptr + 5);
-    if ((ptr = strstr(command, "binc"))) binc = atoi(ptr + 5);
-    if ((ptr = strstr(command, "movestogo"))) movestogo = atoi(ptr + 10);
+    if ((ptr = strstr(command, "wtime"))) {
+        wtime = atoi(ptr + 6);
+    }
+    if ((ptr = strstr(command, "btime"))) {
+        btime = atoi(ptr + 6);
+    }
+    if ((ptr = strstr(command, "winc"))) {
+        winc = atoi(ptr + 5);
+    }
+    if ((ptr = strstr(command, "binc"))) {
+        binc = atoi(ptr + 5);
+    }
+    if ((ptr = strstr(command, "movestogo"))) {
+        movestogo = atoi(ptr + 10);
+    }
     if ((ptr = strstr(command, "movetime"))) {
-        movetime = atoi(ptr + 9); // Give it 50ms of safety padding
+        movetime = atoi(ptr + 9); 
     }
     
-    // If GUI specifically asks for fixed depth, do it
+    // fixed depth
     if ((ptr = strstr(command, "depth"))) depth = atoi(ptr + 6); 
     if ((ptr = strstr(command, "nodes"))) {
         search_node_limit = atoll(ptr + 6);
@@ -121,9 +159,11 @@ void parse_go(char* command, Position* pos) {
         return; 
     }
 
+    // launch threads
+    lazy_smp(pos, THREAD_COUNT);
 
     // iterative deepening
-    search_position(pos, depth);
+    //search_position(pos, depth);
 }
 
 
@@ -445,9 +485,9 @@ void uci_loop(Position* pos) {
             printf("info string Hash size set to %d MB\n", hash_size);
 
         } else if (strncmp(line, "setoption name Threads value ", 29) == 0) {
-            thread_count = atoi(line + 29);
+            THREAD_COUNT = atoi(line + 29);
 
-            printf("info string Thread count set to %d \n", thread_count);
+            printf("info string Thread count set to %d \n", THREAD_COUNT);
 
         } else if (strcmp(line, "quit") == 0) {
             break;

@@ -5,9 +5,16 @@
 #include "movegen.h"
 #include <stdio.h>
 
-#define MAX_SEARCH_PLY 128
+extern int THREAD_COUNT; // used for lazy smp
 
-extern int thread_count; // used for lazy smp
+typedef struct {
+    int thread_id;
+    Position pos; // local copy of position
+} ThreadData;
+
+void* search_worker(void* arg);
+
+#define MAX_SEARCH_PLY 128
 
 extern U64 game_history[2048];
 extern int game_ply;
@@ -16,7 +23,7 @@ extern int killer_moves[2][MAX_SEARCH_PLY];
 extern int history_moves[2][64][64];
 
 extern int search_time_limit;
-extern int time_over;
+extern volatile int time_over;
 extern long long nodes_evaluated;
 extern long long search_start_time;
 extern int best_move;
