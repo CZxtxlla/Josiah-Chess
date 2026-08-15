@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <time.h>
 #include <limits.h>
+#include <pthread.h>
+
+int THREAD_COUNT = 1;
 
 char current_game_history[4096] = "";
 int book_enabled = 0;
@@ -61,52 +64,103 @@ int get_book_move(char* history, Position* pos) {
     return parse_move(chosen_move_str, pos);
 }
 
+void lazy_smp(Position* pos, int target_depth, int num_helpers) {
+    time_over = 0;
+
+    int alloc = (num_helpers > 0) ? num_helpers : 1;
+
+    pthread_t helpers[alloc];
+    ThreadData helper_data[alloc];
+
+    // helper threads
+    for (int i = 0; i < num_helpers; i++) {
+        helper_data[i].thread_id = i + 1;
+        helper_data[i].pos = *pos;
+        helper_data[i].target_depth = target_depth;
+
+        pthread_create(&helpers[i], NULL, search_worker, &helper_data[i]);
+    }
+    // main thread
+    ThreadData main_data;
+    main_data.thread_id = 0;
+    main_data.pos = *pos;
+    main_data.target_depth = target_depth;
+    
+    search_worker(&main_data);
+
+    time_over = 1;
+
+    for (int i = 0; i < num_helpers; i++) {
+        pthread_join(helpers[i], NULL);
+    }
+}
+
 
 void parse_go(char* command, Position* pos) {
     int depth = 64; // massive depth so the clock breaks
     int wtime = -1, btime = -1, winc = 0, binc = 0, movestogo = 30;
     int movetime = -1;
+    int fixed_search = 0;
 
     char* ptr;
     
     // Extract values
-    if ((ptr = strstr(command, "wtime"))) wtime = atoi(ptr + 6);
-    if ((ptr = strstr(command, "btime"))) btime = atoi(ptr + 6);
-    if ((ptr = strstr(command, "winc"))) winc = atoi(ptr + 5);
-    if ((ptr = strstr(command, "binc"))) binc = atoi(ptr + 5);
-    if ((ptr = strstr(command, "movestogo"))) movestogo = atoi(ptr + 10);
+    if ((ptr = strstr(command, "wtime"))) {
+        wtime = atoi(ptr + 6);
+    }
+    if ((ptr = strstr(command, "btime"))) {
+        btime = atoi(ptr + 6);
+    }
+    if ((ptr = strstr(command, "winc"))) {
+        winc = atoi(ptr + 5);
+    }
+    if ((ptr = strstr(command, "binc"))) {
+        binc = atoi(ptr + 5);
+    }
+    if ((ptr = strstr(command, "movestogo"))) {
+        movestogo = atoi(ptr + 10);
+    }
     if ((ptr = strstr(command, "movetime"))) {
-        movetime = atoi(ptr + 9); // Give it 50ms of safety padding
+        movetime = atoi(ptr + 9); 
     }
     
-    // If GUI specifically asks for fixed depth, do it
-    if ((ptr = strstr(command, "depth"))) depth = atoi(ptr + 6); 
+    // fixed depth
+    if ((ptr = strstr(command, "depth"))) {
+        depth = atoi(ptr + 6); 
+        search_time_limit = 999999; 
+        fixed_search = 1;
+    }
     if ((ptr = strstr(command, "nodes"))) {
         search_node_limit = atoll(ptr + 6);
         search_time_limit = 999999; 
+        fixed_search = 1;
     }
     else search_node_limit = 0;
 
-    // Determine whose clock we are looking at
-    int time_left = (pos->side == WHITE) ? wtime : btime;
-    int increment = (pos->side == WHITE) ? winc : binc;
+    if (!fixed_search) {
+        // Determine whose clock we are looking at
+        int time_left = (pos->side == WHITE) ? wtime : btime;
+        int increment = (pos->side == WHITE) ? winc : binc;
 
-    if (movetime != -1) {
-        search_time_limit = movetime - 50; 
-    } else if (time_left != -1) {
-        // divide remaining time by the moves we think are left, plus half the increment
-        search_time_limit = (time_left / movestogo) + (increment / 2);
-        
-        // Safety Buffer, 50 ms
-        if (search_time_limit > time_left - 50) {
-            search_time_limit = time_left - 50;
+        if (movetime != -1) {
+            search_time_limit = movetime - 50; 
+        } else if (time_left != -1) {
+            // divide remaining time by the moves we think are left, plus half the increment
+            search_time_limit = (time_left / movestogo) + (increment / 2);
+            
+            // Safety Buffer, 50 ms
+            if (search_time_limit > time_left - 50) {
+                search_time_limit = time_left - 50;
+            }
+            
+            // If at 0, give the engine 10ms to find any move
+            if (search_time_limit <= 0) search_time_limit = 10;
+        } else {
+            // If no time was sent, default to 2 seconds
+            search_time_limit = 2000; 
         }
-        
-        // If we are literally at 0, give the engine 10ms to find ANY move
-        if (search_time_limit <= 0) search_time_limit = 10;
     } else {
-        // If no time was sent, just think for 2 seconds
-        search_time_limit = 2000; 
+        search_time_limit = 999999;
     }
 
     if (search_time_limit <= 0) search_time_limit = 10;
@@ -120,10 +174,10 @@ void parse_go(char* command, Position* pos) {
         fflush(stdout);
         return; 
     }
+    search_start_time = get_time_ms();
 
-
-    // iterative deepening
-    search_position(pos, depth);
+    // launch threads
+    lazy_smp(pos, depth, THREAD_COUNT - 1);
 }
 
 
@@ -255,23 +309,29 @@ void run_benchmark(char* command, Position* pos) {
     // disable the clock
     search_time_limit = 99999999; 
     time_over = 0;
-    nodes_evaluated = 0;
     search_start_time = get_time_ms();
+
+    ThreadState ts;
+    memset(&ts, 0, sizeof(ThreadState));
+    ts.id = 0; 
+    
+    // Copy the global game history so repetition detection works in bench
+    for(int i = 0; i < game_ply; i++) {
+        ts.search_history[i] = game_history[i];
+    }
+    ts.search_ply = game_ply;
 
     int best_move_so_far = 0;
     long long total_nodes = 0;
 
-    memset(killer_moves, 0, sizeof(killer_moves));
-    memset(history_moves, 0, sizeof(history_moves));
-
     // run iterative deepening loop
     for (int current_depth = 1; current_depth <= target_depth; current_depth++) {
-        long long nodes_before = nodes_evaluated;
-        int final_score = negamax(pos, current_depth, 0, -50000, 50000);
-        best_move_so_far = best_move;
+        long long nodes_before = ts.nodes_evaluated;
+        int final_score = negamax(pos, current_depth, 0, -50000, 50000, &ts);
+        best_move_so_far = ts.best_move;
         
         long long duration = get_time_ms() - search_start_time;
-        long long depth_nodes = nodes_evaluated - nodes_before;
+        long long depth_nodes = ts.nodes_evaluated - nodes_before;
         total_nodes += depth_nodes;
         
         // print table row for each depth
@@ -388,7 +448,6 @@ void uci_loop(Position* pos) {
         line[strcspn(line, "\n")] = 0;
         line[strcspn(line, "\r")] = 0;
 
-        // Use strcmp (exact match) instead of strncmp to prevent "ucinewgame" trap
         if (strcmp(line, "uci") == 0) {
             printf("id name JosiahEngine\n");
             printf("id author Charles Zitella\n");
@@ -404,8 +463,6 @@ void uci_loop(Position* pos) {
         } 
         else if (strcmp(line, "ucinewgame") == 0) {
             clear_tt();
-            memset(killer_moves, 0, sizeof(killer_moves));
-            memset(history_moves, 0, sizeof(history_moves));
             parse_fen(pos, START_POSITION);
         }
         else if (strncmp(line, "position", 8) == 0) {
@@ -436,14 +493,19 @@ void uci_loop(Position* pos) {
         } else if (strncmp(line, "setoption name Hash value ", 26) == 0) {
             int hash_size = atoi(line + 26);
             
-            // Constrain to the min/max defined in your UCI options
+            // Constrain to the min/max defined in UCI options
             if (hash_size < 1) hash_size = 1;
             if (hash_size > 32768) hash_size = 32768;
             
             // Re-initialize the transposition table.
             init_tt(hash_size);
             printf("info string Hash size set to %d MB\n", hash_size);
-            
+
+        } else if (strncmp(line, "setoption name Threads value ", 29) == 0) {
+            THREAD_COUNT = atoi(line + 29);
+
+            printf("info string Thread count set to %d \n", THREAD_COUNT);
+
         } else if (strcmp(line, "quit") == 0) {
             break;
         } 

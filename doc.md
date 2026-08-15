@@ -783,3 +783,5 @@ Mark_10NNUE_v1 (Mark 10 but with nnue eval trained on Mark_11)
 Mark_10NNUE_v2 (Mark 10 but with nnue eval trained on Mark_10NNUE_v1 and Mark_11)
 
 Mark_12NNUE_v2 (Mark_10NNUE_v2 but with delta pruning / check extensions)
+
+Mark_13NNUE_v2 (Mark_12NNUE_v2 but with lazy smp)

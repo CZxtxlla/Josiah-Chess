@@ -5,6 +5,7 @@
 #include "../include/uci.h"
 #include "../include/zobrist.h"
 #include "../syzygy/tbprobe.h"
+#include "../include/search.h"
 #include <limits.h>
 #include <string.h>
 #include <unistd.h>

@@ -13,20 +13,10 @@
 U64 game_history[2048]; // Stores the hash of every position played
 int game_ply = 0;       // How many moves deep into the game we are
 
-int killer_moves[2][MAX_SEARCH_PLY]; // stores 2 killer moves for up to 64 depth plys
-int history_moves[2][64][64]; // [color][from_sq][to_sq]
-
-int pv_length[MAX_SEARCH_PLY]; // Stores the length of the PV for each ply
-int pv_table[MAX_SEARCH_PLY][MAX_SEARCH_PLY]; // stores the actual PV moves: [ply][move index]
-
 // used for iterative deepening
 int search_time_limit = 2000; // Stop searching after 2000ms (2 seconds)
 long long search_start_time = 0;
-int time_over = 0;
-
-// used for negamax
-int best_move = 0;
-long long nodes_evaluated = 0;
+volatile int time_over = 0;
 
 int syzygy_enabled = 0; // used for enabling endgame tablebases
 
@@ -50,9 +40,9 @@ int get_piece_at(Position* pos, int square) {
 }
 
 // helper to check if repetition
-int is_repetition(Position* pos) {
-    for (int i = 0; i < game_ply - 1; i++) {
-        if (game_history[i] == pos->hash_key) {
+int is_repetition(Position* pos, ThreadState* ts) {
+    for (int i = 0; i < ts->search_ply - 1; i++) {
+        if (ts->search_history[i] == pos->hash_key) {
             return 1;
         }
     }
@@ -89,7 +79,7 @@ int is_move_valid(Position* pos, int move) {
     return 0; // illegal move (hash collision)
 }
 
-int score_move(Position* pos, int move, int distance, int hash_move) {
+int score_move(Position* pos, int move, int distance, int hash_move, ThreadState* ts) {
     if (move == hash_move) {
         return 40000; // hash table moves are really good
     }
@@ -119,21 +109,21 @@ int score_move(Position* pos, int move, int distance, int hash_move) {
 
     // killer heuristic
     if (distance < MAX_SEARCH_PLY) {
-        if (move == killer_moves[0][distance]) return 19000;
-        if (move == killer_moves[1][distance]) return 18000;
+        if (move == ts->killer_moves[0][distance]) return 19000;
+        if (move == ts->killer_moves[1][distance]) return 18000;
     }
 
     // history moves, baseline
-    return history_moves[pos->side][from][to];
+    return ts->history_moves[pos->side][from][to];
 }
 
-void order_moves(Position* pos, MoveList* list, int distance, int hash_move) {
+void order_moves(Position* pos, MoveList* list, int distance, int hash_move, ThreadState* ts) {
     if (list->count < 2) return; // safety
     int scores[256];
 
     // initialize scores array
     for (int i = 0; i < list->count; i++) {
-        scores[i] = score_move(pos, list->moves[i], distance, hash_move);
+        scores[i] = score_move(pos, list->moves[i], distance, hash_move, ts);
     }
 
     for (int i = 0; i < list->count - 1; i++) {
@@ -153,16 +143,16 @@ void order_moves(Position* pos, MoveList* list, int distance, int hash_move) {
     }
 }
 
-int quiescence(Position* pos, int alpha, int beta, int qdepth) {
-    nodes_evaluated++;
+int quiescence(Position* pos, int alpha, int beta, int qdepth, ThreadState* ts) {
+    ts->nodes_evaluated++;
 
     // Every 2048 nodes, check if we are out of time
-    if ((nodes_evaluated % 2048) == 0) {
+    if (ts->nodes_evaluated > 0 && (ts->nodes_evaluated % 2048) == 0) {
         if (get_time_ms() - search_start_time >= search_time_limit) {
             time_over = 1;
         }
         // for datagen
-        if (search_node_limit > 0 && nodes_evaluated >= search_node_limit) {
+        if (search_node_limit > 0 && ts->nodes_evaluated >= search_node_limit) {
             time_over = 1;
         }
     }
@@ -196,7 +186,7 @@ int quiescence(Position* pos, int alpha, int beta, int qdepth) {
         generate_captures(pos, &list);
     }
 
-    order_moves(pos, &list, 0, 0); // 0 for the distance as a dummy since the score will be overidden by the fact it's a capture
+    order_moves(pos, &list, 0, 0, ts); // 0 for the distance as a dummy since the score will be overidden by the fact it's a capture
 
     int legal_moves = 0;
     for (int i = 0; i < list.count; i++) {
@@ -221,9 +211,11 @@ int quiescence(Position* pos, int alpha, int beta, int qdepth) {
         if (make_move(&next_state, move)) {
             legal_moves++;
 
-            int score = -quiescence(&next_state, -beta, -alpha, qdepth + 1);
+            int score = -quiescence(&next_state, -beta, -alpha, qdepth + 1, ts);
 
-            if (time_over) return 0;
+            if (time_over) {
+                return 0;
+            }
 
             if (score >= beta) {
                 return beta;
@@ -241,22 +233,23 @@ int quiescence(Position* pos, int alpha, int beta, int qdepth) {
     return alpha;
 }
 
-int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
+int negamax(Position* pos, int depth, int distance, int alpha, int beta, ThreadState* ts) {
     // Every 2048 nodes, check if we are out of time
-    if ((nodes_evaluated % 2048) == 0) {
+    ts->nodes_evaluated++;
+    if (ts->nodes_evaluated > 0 && (ts->nodes_evaluated % 2048) == 0) {
         if (get_time_ms() - search_start_time >= search_time_limit) {
             time_over = 1;
         }
 
         // for datagen
-        if (search_node_limit > 0 && nodes_evaluated >= search_node_limit) {
+        if (search_node_limit > 0 && ts->nodes_evaluated >= search_node_limit) {
             time_over = 1;
         }
     }
 
     // initialize pv length table
     if (distance < MAX_SEARCH_PLY - 1) {
-        pv_length[distance] = distance;
+        ts->pv_length[distance] = distance;
     }
 
     // If time is up, return immediately
@@ -266,10 +259,10 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
 
     // base case
     if (depth == 0) {
-        return quiescence(pos, alpha, beta, 0);
+        return quiescence(pos, alpha, beta, 0, ts);
     }
 
-    if (distance > 0 && is_repetition(pos)) {
+    if (distance > 0 && is_repetition(pos, ts)) {
         return 0; // it's a draw, 3 fold repetition
     }
 
@@ -291,7 +284,7 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
                 // do nothing
             } else { 
                 if (distance == 0 && hash_move != 0) {
-                    best_move = hash_move;
+                    ts->best_move = hash_move;
                 }
                 return tt_score;  // perfect, cut the search
             }
@@ -362,7 +355,7 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
         pos->side ^= 1;
 
         // (-beta, -beta + 1) window
-        int null_score = -negamax(pos, depth - 1 - R, distance + 1, -beta, -beta + 1);
+        int null_score = -negamax(pos, depth - 1 - R, distance + 1, -beta, -beta + 1, ts);
 
         pos->side ^= 1;
         pos->en_passant = ep_backup;
@@ -386,7 +379,7 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
     MoveList list;
     generate_moves(pos, &list); // get all moves
 
-    order_moves(pos, &list, distance, hash_move);
+    order_moves(pos, &list, distance, hash_move, ts);
 
     int legal_moves = 0;
     int moves_searched = 0; // track the num of legal moves we have evaluated
@@ -398,11 +391,11 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
         if (make_move(&next_state, list.moves[i])) {
             legal_moves++;
 
-            if (distance == 0 && best_move == 0) {
-                best_move = list.moves[i]; // fix the not finding a move in time
+            if (distance == 0 && ts->best_move == 0) {
+                ts->best_move = list.moves[i]; // fix the not finding a move in time
             }
-            game_history[game_ply] = next_state.hash_key;
-            game_ply++;
+            ts->search_history[ts->search_ply] = next_state.hash_key;
+            ts->search_ply++;
 
             int score;
 
@@ -413,7 +406,7 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
 
             // principle variation search and LMR
             if (moves_searched == 0) {
-                score = -negamax(&next_state, depth - 1, distance + 1, -beta, -alpha); // full window
+                score = -negamax(&next_state, depth - 1, distance + 1, -beta, -alpha, ts); // full window
             } else {
                 int pvs = 1;
 
@@ -426,7 +419,7 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
                         reduction = 2; 
                     }
 
-                    score = -negamax(&next_state, depth - 1 - reduction, distance + 1, -alpha - 1, -alpha);
+                    score = -negamax(&next_state, depth - 1 - reduction, distance + 1, -alpha - 1, -alpha, ts);
 
                     // reduction worked
                     if (score <= alpha) {
@@ -437,16 +430,16 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
 
                 // run if didn't reduce or reduction search failed high (move might be good)
                 if (pvs) {
-                    score = -negamax(&next_state, depth - 1, distance + 1, -alpha - 1, -alpha);
+                    score = -negamax(&next_state, depth - 1, distance + 1, -alpha - 1, -alpha, ts);
                 }
 
                 // failsafe if move was actually better
                 if (score > alpha && score < beta) {
-                    score = -negamax(&next_state, depth - 1, distance + 1, -beta, -alpha);
+                    score = -negamax(&next_state, depth - 1, distance + 1, -beta, -alpha, ts);
                 }
             }
 
-            game_ply--;
+            ts->search_ply--;
 
             moves_searched++;
 
@@ -458,19 +451,19 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
                 local_best_move = list.moves[i]; // track locally for TT
 
                 if (distance == 0) {
-                    best_move = list.moves[i];
+                    ts->best_move = list.moves[i];
                 }
 
                 if (distance < MAX_SEARCH_PLY - 1) {
-                    pv_table[distance][distance] = list.moves[i];
+                    ts->pv_table[distance][distance] = list.moves[i];
                     
                     // Copy the PV from the deeper ply to the current ply
-                    for (int next_ply = distance + 1; next_ply < pv_length[distance + 1]; next_ply++) {
-                        pv_table[distance][next_ply] = pv_table[distance + 1][next_ply];
+                    for (int next_ply = distance + 1; next_ply < ts->pv_length[distance + 1]; next_ply++) {
+                        ts->pv_table[distance][next_ply] = ts->pv_table[distance + 1][next_ply];
                     }
                     
                     // Update the length of the PV line
-                    pv_length[distance] = pv_length[distance + 1];
+                    ts->pv_length[distance] = ts->pv_length[distance + 1];
                 }
             }
 
@@ -482,17 +475,17 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
                 if (!is_capture) {
                     // shift down the killer moves, most recent in index 0
                     if (distance < MAX_SEARCH_PLY) {
-                        killer_moves[1][distance] = killer_moves[0][distance];
-                        killer_moves[0][distance] = list.moves[i];
+                        ts->killer_moves[1][distance] = ts->killer_moves[0][distance];
+                        ts->killer_moves[0][distance] = list.moves[i];
                     }
 
                     // reward this move globally based on how deep we searched
                     int from_sq = get_move_from(list.moves[i]);
-                    history_moves[pos->side][from_sq][to_sq] += (depth * depth);
+                    ts->history_moves[pos->side][from_sq][to_sq] += (depth * depth);
 
                     // never let History overflow into Killer territory
-                    if (history_moves[pos->side][from_sq][to_sq] > 10000) {
-                        history_moves[pos->side][from_sq][to_sq] = 10000;
+                    if (ts->history_moves[pos->side][from_sq][to_sq] > 10000) {
+                        ts->history_moves[pos->side][from_sq][to_sq] = 10000;
                     }
                 }
                 break; 
@@ -529,38 +522,39 @@ int negamax(Position* pos, int depth, int distance, int alpha, int beta) {
     return alpha;
 }
 
-void search_position(Position* pos, int depth) {
-    search_start_time = get_time_ms();
-    time_over = 0;
+void* search_worker(void* arg) {
+    ThreadData* data = (ThreadData*)arg;
+    Position local_pos = data->pos;
+    int target_depth = data->target_depth;
 
-    int best_move_so_far = 0;
-    best_move = 0;
-    nodes_evaluated = 0;
+    ThreadState ts;
+    memset(&ts, 0, sizeof(ThreadState));
+    ts.id = data->thread_id;
 
-    memset(killer_moves, 0, sizeof(killer_moves));
-    memset(history_moves, 0, sizeof(history_moves));
-    memset(pv_table, 0, sizeof(pv_table));
-    memset(pv_length, 0, sizeof(pv_length));
+    for(int i = 0; i < game_ply; i++) {
+        ts.search_history[i] = game_history[i];
+    }
+    ts.search_ply = game_ply;
 
     //svygzy root probing
-    int piece_count = __builtin_popcountll(pos->occupancy[WHITE] | pos->occupancy[BLACK]);
+    int piece_count = __builtin_popcountll(local_pos.occupancy[WHITE] | local_pos.occupancy[BLACK]);
 
     // only probe if the piece count is low enough, and castling is no longer possible
-    if (syzygy_enabled && piece_count <= TB_LARGEST && pos->castling_rights == 0) {
+    if (ts.id == 0 && syzygy_enabled && piece_count <= TB_LARGEST && local_pos.castling_rights == 0) {
         
         unsigned root_result = tb_probe_root(
-            pos->occupancy[WHITE], 
-            pos->occupancy[BLACK],
-            pos->pieces[K] | pos->pieces[k],
-            pos->pieces[Q] | pos->pieces[q],
-            pos->pieces[R] | pos->pieces[r],
-            pos->pieces[B] | pos->pieces[b],
-            pos->pieces[N] | pos->pieces[n],
-            pos->pieces[P] | pos->pieces[p],
+            local_pos.occupancy[WHITE], 
+            local_pos.occupancy[BLACK],
+            local_pos.pieces[K] | local_pos.pieces[k],
+            local_pos.pieces[Q] | local_pos.pieces[q],
+            local_pos.pieces[R] | local_pos.pieces[r],
+            local_pos.pieces[B] | local_pos.pieces[b],
+            local_pos.pieces[N] | local_pos.pieces[n],
+            local_pos.pieces[P] | local_pos.pieces[p],
             0,
-            pos->castling_rights, 
-            pos->en_passant == -1 ? 0 : pos->en_passant, 
-            pos->side == WHITE,
+            local_pos.castling_rights, 
+            local_pos.en_passant == -1 ? 0 : local_pos.en_passant, 
+            local_pos.side == WHITE,
             NULL
         );
 
@@ -590,43 +584,48 @@ void search_position(Position* pos, int depth) {
                     (tb_to % 8) + 'a', (tb_to / 8) + '1');
             }
             
-            return; // exit search, found best move
+            time_over = 1;
+            return NULL; // exit search, found best move
         }
     }
 
-    // iterative deepening
-    for (int current_depth = 1; current_depth <= depth; current_depth++) {
-        int final_score = negamax(pos, current_depth, 0, -50000, 50000);
+    for (int current_depth = 1; current_depth <= target_depth; current_depth++) {
+        
+        int final_score = negamax(&local_pos, current_depth, 0, -50000, 50000, &ts);
 
         if (time_over) {
-            if (best_move_so_far == 0 && best_move != 0) {
-                best_move_so_far = best_move;
+            if (ts.best_move_so_far == 0 && ts.best_move != 0) {
+                ts.best_move_so_far = ts.best_move;
             }
             break;
         }
 
-        best_move_so_far = best_move;
+        ts.best_move_so_far = ts.best_move;
 
-        long long duration = get_time_ms() - search_start_time;
-
-        printf("info depth %d score cp %d time %lld nodes %lld pv ", current_depth, final_score, duration, nodes_evaluated);
-        for (int count = 0; count < pv_length[0]; count++) {
-            print_move(pv_table[0][count]);
-            printf(" ");
+        if (ts.id == 0) {
+            long long duration = get_time_ms() - search_start_time;
+            printf("info depth %d score cp %d time %lld nodes %lld pv ", current_depth, final_score, duration, ts.nodes_evaluated);
+            for (int count = 0; count < ts.pv_length[0]; count++) {
+                print_move(ts.pv_table[0][count]);
+                printf(" ");
+            }
+            printf("\n");
         }
+    }
+
+    if (ts.id == 0) { 
+        printf("bestmove ");
+        print_move(ts.best_move_so_far);
         printf("\n");
     }
 
-    // Output the results in the official UCI format
-    printf("bestmove ");
-    print_move(best_move_so_far);
-    printf("\n");
+    return NULL;
 }
 
 
 // ------- Stuff for Datagen -----------
 
-int search_position_nodes(Position* pos, int max_nodes) {
+int search_position_nodes(Position* pos, int max_nodes, int* returned_best_move) {
     search_start_time = get_time_ms();
     time_over = 0;
     
@@ -634,37 +633,37 @@ int search_position_nodes(Position* pos, int max_nodes) {
     search_node_limit = max_nodes;
     search_time_limit = 99999999; 
     
-    int best_move_so_far = 0;
-    best_move = 0;
-    nodes_evaluated = 0;
-
-    memset(killer_moves, 0, sizeof(killer_moves));
-    memset(history_moves, 0, sizeof(history_moves));
-    memset(pv_table, 0, sizeof(pv_table));
-    memset(pv_length, 0, sizeof(pv_length));
+    ThreadState ts;
+    memset(&ts, 0, sizeof(ThreadState));
+    ts.id = 0;
+    
+    for(int i = 0; i < game_ply; i++) {
+        ts.search_history[i] = game_history[i];
+    }
+    ts.search_ply = game_ply;
 
     int final_score = 0;
 
     // Iterative deepening limited by nodes
     for (int current_depth = 1; current_depth <= 64; current_depth++) {
-        int score = negamax(pos, current_depth, 0, -50000, 50000);
+        int score = negamax(pos, current_depth, 0, -50000, 50000, &ts);
 
         if (time_over) {
+            if (ts.best_move_so_far == 0 && ts.best_move != 0) {
+                ts.best_move_so_far = ts.best_move;
+            }
             break; // Node limit reached, break out of iterative deepening
         }
 
         final_score = score; // Save the completed depth's score
 
-        if (best_move != 0) {
-            best_move_so_far = best_move;
+        if (ts.best_move != 0) {
+            ts.best_move_so_far = ts.best_move;
         }
     }
 
-    if (best_move_so_far != 0) {
-        best_move = best_move_so_far;
-    }
-
-    search_node_limit = 0; // Reset back to normal UCI behavior
+    *returned_best_move = ts.best_move_so_far;
+    search_node_limit = 0; 
     return final_score;
 }
 
@@ -675,9 +674,6 @@ void play_datagen_game(char* starting_fen, FILE* output_file) {
     // Reset engine's global game state for the new game
     memset(game_history, 0, sizeof(game_history)); 
     game_ply = 0;
-    
-    
-    //clear_tt(); 
     
     TrainingData game_data[1000]; // Array to hold this game's positions
     int positions_saved = 0;
@@ -715,13 +711,20 @@ void play_datagen_game(char* starting_fen, FILE* output_file) {
         }
         
         // repetition or length
-        if (is_repetition(&pos) || game_ply >= 600) {
-            game_result = 0;
-            break;
+        int is_rep = 0;
+        for (int i = 0; i < game_ply - 1; i++) {
+            if (game_history[i] == pos.hash_key) {
+                is_rep = 1; break;
+            }
+        }
+        if (is_rep) { 
+            game_result = 0; 
+            break; 
         }
         
         // search position
-        int score = search_position_nodes(&pos, 10000); 
+        int best_move = 0;
+        int score = search_position_nodes(&pos, 10000, &best_move);
 
         if (best_move == 0) {
             fprintf(stderr, "info string datagen aborted: search did not produce a legal move\n");
