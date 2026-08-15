@@ -55,9 +55,6 @@ void order_moves(Position* pos, MoveList* moves, int distance, int hash_move, Th
 // recursively perform alpha beta pruning 
 int negamax(Position* pos, int depth, int distance, int alpha, int beta, ThreadState* ts); 
 
-// function to call negamax and format the output
-void search_position(Position* pos, int depth);
-
 // base case for negamax that continues until there are no captures
 int quiescence(Position* pos, int alpha, int beta, int qdepth, ThreadState* ts);
 

@@ -448,7 +448,6 @@ void uci_loop(Position* pos) {
         line[strcspn(line, "\n")] = 0;
         line[strcspn(line, "\r")] = 0;
 
-        // Use strcmp (exact match) instead of strncmp to prevent "ucinewgame" trap
         if (strcmp(line, "uci") == 0) {
             printf("id name JosiahEngine\n");
             printf("id author Charles Zitella\n");

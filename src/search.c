@@ -620,9 +620,6 @@ void* search_worker(void* arg) {
     }
 
     return NULL;
-
-
-    
 }
 
 
@@ -645,7 +642,6 @@ int search_position_nodes(Position* pos, int max_nodes, int* returned_best_move)
     }
     ts.search_ply = game_ply;
 
-    int best_move_so_far = 0;
     int final_score = 0;
 
     // Iterative deepening limited by nodes
@@ -653,21 +649,20 @@ int search_position_nodes(Position* pos, int max_nodes, int* returned_best_move)
         int score = negamax(pos, current_depth, 0, -50000, 50000, &ts);
 
         if (time_over) {
+            if (ts.best_move_so_far == 0 && ts.best_move != 0) {
+                ts.best_move_so_far = ts.best_move;
+            }
             break; // Node limit reached, break out of iterative deepening
         }
 
         final_score = score; // Save the completed depth's score
 
         if (ts.best_move != 0) {
-            best_move_so_far = ts.best_move;
+            ts.best_move_so_far = ts.best_move;
         }
     }
 
-    if (best_move_so_far != 0) {
-        ts.best_move = best_move_so_far;
-    }
-
-    *returned_best_move = best_move_so_far;
+    *returned_best_move = ts.best_move_so_far;
     search_node_limit = 0; 
     return final_score;
 }
