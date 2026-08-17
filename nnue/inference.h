@@ -16,25 +16,34 @@
 typedef struct {
     int in_features;
     int out_features;
-    int32_t* weight; // flattened 1D array of size (in_features * out_features)
-    int32_t* bias; // size out_features
-} LinearLayer;
+    int16_t* weight;
+    int16_t* bias;
+} FeatureTransformer;
+
+typedef struct {
+    int in_features;
+    int out_features;
+    int8_t* weight;
+    int32_t* bias;
+} HiddenLayer;
 
 typedef struct {
     int num_hidden_layers;
-    LinearLayer* feature_transformer;
-    LinearLayer** hidden_layers;
+    FeatureTransformer* feature_transformer;
+    HiddenLayer** hidden_layers;
 } NNUE;
 
 extern NNUE* model;
 
 // loading
 
-LinearLayer* load_layer(FILE* file);
+FeatureTransformer* load_feature_transformer(FILE* file);
+HiddenLayer* load_hidden_layer(FILE* file);
 NNUE* load_nnue(const char* filepath);
 
 // cleanup 
-void free_layer(LinearLayer* layer);
+void free_feature_transformer(FeatureTransformer* layer);
+void free_hidden_layer(HiddenLayer* layer);
 void free_nnue(NNUE* model);
 
 // accumulator stuff

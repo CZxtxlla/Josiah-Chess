@@ -3,8 +3,8 @@
 
 NNUE* model = NULL;
 
-LinearLayer* load_layer(FILE* file) {
-    LinearLayer* layer = (LinearLayer*)malloc(sizeof(LinearLayer));
+HiddenLayer* load_hidden_layer(FILE* file) {
+    HiddenLayer* layer = (HiddenLayer*)malloc(sizeof(HiddenLayer));
     if (fread(&layer->in_features, sizeof(int), 1, file) != 1) {
         return NULL;
     }
@@ -15,11 +15,32 @@ LinearLayer* load_layer(FILE* file) {
     int w_size = layer->in_features * layer->out_features;
     int b_size = layer->out_features;
 
-    layer->weight = (int32_t*)malloc(w_size * sizeof(int32_t));
+    layer->weight = (int8_t*)malloc(w_size * sizeof(int8_t));
     layer->bias = (int32_t*)malloc(b_size * sizeof(int32_t));
 
-    fread(layer->weight, sizeof(int32_t), w_size, file);
+    fread(layer->weight, sizeof(int8_t), w_size, file);
     fread(layer->bias, sizeof(int32_t), b_size, file);
+
+    return layer;
+}
+
+FeatureTransformer* load_feature_transformer(FILE* file) {
+    FeatureTransformer* layer = (FeatureTransformer*)malloc(sizeof(FeatureTransformer));
+    if (fread(&layer->in_features, sizeof(int), 1, file) != 1) {
+        return NULL;
+    }
+    if (fread(&layer->out_features, sizeof(int), 1, file) != 1) {
+        return NULL;
+    }
+
+    int w_size = layer->in_features * layer->out_features;
+    int b_size = layer->out_features;
+
+    layer->weight = (int16_t*)malloc(w_size * sizeof(int16_t));
+    layer->bias = (int16_t*)malloc(b_size * sizeof(int16_t));
+
+    fread(layer->weight, sizeof(int16_t), w_size, file);
+    fread(layer->bias, sizeof(int16_t), b_size, file);
 
     return layer;
 }
@@ -41,18 +62,26 @@ NNUE* load_nnue(const char* filepath) {
     NNUE* model = (NNUE*)malloc(sizeof(NNUE));
     fread(&model->num_hidden_layers, sizeof(int), 1, file);
     
-    model->feature_transformer = load_layer(file);
+    model->feature_transformer = load_feature_transformer(file);
 
-    model->hidden_layers = (LinearLayer**)malloc(model->num_hidden_layers * sizeof(LinearLayer*));
+    model->hidden_layers = (HiddenLayer**)malloc(model->num_hidden_layers * sizeof(HiddenLayer*));
     for (int i = 0; i < model->num_hidden_layers; i++) {
-        model->hidden_layers[i] = load_layer(file);
+        model->hidden_layers[i] = load_hidden_layer(file);
     }
 
     fclose(file);
     return model;
 }
 
-void free_layer(LinearLayer* layer) {
+void free_hidden_layer(HiddenLayer* layer) {
+    if (layer) {
+        free(layer->weight);
+        free(layer->bias);
+        free(layer);
+    }
+}
+
+void free_feature_transformer(FeatureTransformer* layer) {
     if (layer) {
         free(layer->weight);
         free(layer->bias);
@@ -62,9 +91,9 @@ void free_layer(LinearLayer* layer) {
 
 void free_nnue(NNUE* model) {
     if (model) {
-        free_layer(model->feature_transformer);
+        free_feature_transformer(model->feature_transformer);
         for (int i = 0; i < model->num_hidden_layers; i++) {
-            free_layer(model->hidden_layers[i]);
+            free_hidden_layer(model->hidden_layers[i]);
         }
 
         free((void*)model->hidden_layers);
@@ -89,7 +118,7 @@ int flip_piece(int p_type) {
     return (p_type + 6) % 12; 
 }
 
-static inline int32_t clipped_relu_int(int32_t x) {
+static inline int16_t clipped_relu_int(int32_t x) {
     // clipped leaky relu
     if (x < 0) {
         return 0;
@@ -97,7 +126,7 @@ static inline int32_t clipped_relu_int(int32_t x) {
     if (x > 255) {
         return 255;
     }
-    return x;
+    return (uint8_t)x;
 }
 
 
@@ -144,14 +173,14 @@ void update_accumulator(Position* pos, NNUE* model, int piece, int sq, int is_ad
 // evaluation given accumulators
 // for quantized network
 int evaluate_nnue_quantized(const Position* pos, NNUE* model) {
-    int current_input[ACC_SIZE * 2];
-    int next_input[ACC_SIZE * 2];
+    uint8_t current_input[ACC_SIZE * 2];
+    uint8_t next_input[ACC_SIZE * 2];
 
     int stm = pos->side;
 
     // get accumulators from pos struct
-    const int32_t* stm_acc = (stm == 0) ? pos->nnue_acc.white : pos->nnue_acc.black;
-    const int32_t* nstm_acc = (stm == 0) ? pos->nnue_acc.black : pos->nnue_acc.white;
+    const int16_t* stm_acc = (stm == 0) ? pos->nnue_acc.white : pos->nnue_acc.black;
+    const int16_t* nstm_acc = (stm == 0) ? pos->nnue_acc.black : pos->nnue_acc.white;
 
     // perspective concat
     for (int i = 0; i < ACC_SIZE; i++) {
@@ -161,35 +190,38 @@ int evaluate_nnue_quantized(const Position* pos, NNUE* model) {
 
     // hidden layers
     int current_dim = ACC_SIZE * 2;
+    int32_t final_logit = 0;
 
     for (int l = 0; l < model->num_hidden_layers; l++) {
-        LinearLayer* hl = model->hidden_layers[l];
+        HiddenLayer* hl = model->hidden_layers[l];
 
         for (int i = 0; i < hl->out_features; i++) {
-            int64_t sum = (int64_t)hl->bias[i]; // 64 bit sum to prevent overflow
+            int32_t sum = hl->bias[i]; // 64 bit sum to prevent overflow
 
             // matmul
             for (int j = 0; j < hl->in_features; j++) {
-                sum += (int64_t) current_input[j] * hl->weight[(j * hl->out_features) + i];
+                sum += (int32_t) current_input[j] * hl->weight[(j * hl->out_features) + i];
             }
 
             if (l < model->num_hidden_layers - 1) {
                 sum = sum >> 6;
-                next_input[i] = clipped_relu_int((int32_t)sum);
+                next_input[i] = clipped_relu_int(sum);
             } else {
-                next_input[i] = (int32_t)sum;
+                final_logit = sum;
             }
         }
 
         // copy results into current input for next layer
-        current_dim = hl->out_features;
-        for (int i = 0; i < current_dim; i++) {
-            current_input[i] = next_input[i];
+        if (l < model->num_hidden_layers - 1) {
+            current_dim = hl->out_features;
+            for (int i = 0; i < current_dim; i++) {
+                current_input[i] = next_input[i];
+            }
         }
     }
 
     //unquantize logit, (QA = 255) * (QB = 64) = 16320
-    float logit = (float) current_input[0] / 16320.0f;
+    float logit = (float) final_logit / 16320.0f;
 
     return (int)roundf(logit);
 }

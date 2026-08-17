@@ -785,3 +785,35 @@ Mark_10NNUE_v2 (Mark 10 but with nnue eval trained on Mark_10NNUE_v1 and Mark_11
 Mark_12NNUE_v2 (Mark_10NNUE_v2 but with delta pruning / check extensions)
 
 Mark_13NNUE_v2 (Mark_12NNUE_v2 but with lazy smp)
+
+Mark_14NNUE_v2 (Mark_13NNUE_v2 but with massive inference speedup due to better quantization technique)
+
+Mark_14NNUE_v3 (Mark_14NNUE_V2 but with nnue eval trained on Mark13_NNUE_v2)
+
+The following is the result from SPRT with Mark_14NNUE_v2
+
+...      Mark_14NNUE_v3 playing White: 61 - 17 - 48  [0.675] 126
+...      Mark_14NNUE_v3 playing Black: 45 - 27 - 53  [0.572] 125
+...      White vs Black: 88 - 62 - 101  [0.552] 251
+Elo difference: 87.6 +/- 33.6, LOS: 100.0 %, DrawRatio: 40.2 %
+SPRT: llr 2.97 (100.9%), lbound -2.94, ubound 2.94 - H1 was accepted
+
+Player: Mark_14NNUE_v3
+   "Draw by 3-fold repetition": 53
+   "Draw by fifty moves rule": 45
+   "Draw by insufficient mating material": 3
+   "Loss: Black mates": 17
+   "Loss: White mates": 27
+   "No result": 5
+   "Win: Black mates": 45
+   "Win: White mates": 61
+Player: Mark_14NNUE_v2
+   "Draw by 3-fold repetition": 53
+   "Draw by fifty moves rule": 45
+   "Draw by insufficient mating material": 3
+   "Loss: Black mates": 45
+   "Loss: White mates": 61
+   "No result": 5
+   "Win: Black mates": 17
+   "Win: White mates": 27
+Finished match

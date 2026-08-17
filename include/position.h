@@ -16,8 +16,8 @@ enum {
 
 // NNUE Accumulator
 typedef struct {
-    alignas(32) int32_t white[ACC_SIZE];
-    alignas(32) int32_t black[ACC_SIZE];
+    alignas(32) int16_t white[ACC_SIZE];
+    alignas(32) int16_t black[ACC_SIZE];
 } Accumulator;
 
 typedef struct {
