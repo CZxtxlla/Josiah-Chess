@@ -195,10 +195,11 @@ int evaluate_nnue_quantized(const Position* pos, NNUE* model) {
     for (int l = 0; l < model->num_hidden_layers; l++) {
         HiddenLayer* hl = model->hidden_layers[l];
 
+        /*
         for (int i = 0; i < hl->out_features; i++) {
-            int32_t sum = hl->bias[i]; // 64 bit sum to prevent overflow
+            int32_t sum = hl->bias[i];
 
-            // matmul
+            // dot product
             for (int j = 0; j < hl->in_features; j++) {
                 sum += (int32_t) current_input[j] * hl->weight[(j * hl->out_features) + i];
             }
@@ -208,6 +209,28 @@ int evaluate_nnue_quantized(const Position* pos, NNUE* model) {
                 next_input[i] = clipped_relu_int(sum);
             } else {
                 final_logit = sum;
+            }
+        }
+        */
+
+        int32_t sums[256]; // Make this large enough for your max hidden layer size
+        for (int i = 0; i < hl->out_features; i++) {
+            sums[i] = hl->bias[i];
+        }
+
+        for (int j = 0; j < hl->in_features; j++) {
+            int32_t in_val = (int32_t)current_input[j];
+            
+            for (int i = 0; i < hl->out_features; i++) {
+                sums[i] += in_val * hl->weight[(j * hl->out_features) + i];
+            }
+        }
+
+        for (int i = 0; i < hl->out_features; i++) {
+            if (l < model->num_hidden_layers - 1) {
+                next_input[i] = clipped_relu_int(sums[i] >> 6);
+            } else {
+                final_logit = sums[i];
             }
         }
 
@@ -223,5 +246,5 @@ int evaluate_nnue_quantized(const Position* pos, NNUE* model) {
     //unquantize logit, (QA = 255) * (QB = 64) = 16320
     float logit = (float) final_logit / 16320.0f;
 
-    return (int)roundf(logit);
+    return (int)roundf(400.0f * logit);
 }

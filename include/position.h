@@ -12,7 +12,7 @@ enum {
     BQ = 8
 };
 
-#define ACC_SIZE 1024
+#define ACC_SIZE 256
 
 // NNUE Accumulator
 typedef struct {
