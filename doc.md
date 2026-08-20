@@ -817,3 +817,82 @@ Player: Mark_14NNUE_v2
    "Win: Black mates": 17
    "Win: White mates": 27
 Finished match
+
+Mark_15NNUE256_v5 (Mark_14NNUE_V3 but with nnue eval 768->256x2->32->1 trained on Mark14_NNUE_v3, Mark14NNUE_v2. Additionally with another inference speedup swapping the i and j for the dot product)
+It is here that I am focusing all testing and progress development on my pc with a ryzen processor, as compared to my previous testing on macbook air m2. This allows the use of avx2 for nnue inference speedup.
+
+The following is the result from SPRT with Mark_14NNUE_v3
+
+Score of Mark_15NNUE256_v5 vs Mark_14NNUE_v3: 137 - 70 - 128  [0.600] 335
+...      Mark_15NNUE256_v5 playing White: 73 - 33 - 62  [0.619] 168
+...      Mark_15NNUE256_v5 playing Black: 64 - 37 - 66  [0.581] 167
+...      White vs Black: 110 - 97 - 128  [0.519] 335
+Elo difference: 70.4 +/- 29.5, LOS: 100.0 %, DrawRatio: 38.2 %
+SPRT: llr 2.99 (101.5%), lbound -2.94, ubound 2.94 - H1 was accepted
+
+Player: Mark_15NNUE256_v5
+   "Draw by 3-fold repetition": 45
+   "Draw by adjudication: SyzygyTB": 33
+   "Draw by fifty moves rule": 50
+   "Loss: Black mates": 30
+   "Loss: Black wins by adjudication: SyzygyTB": 3
+   "Loss: White mates": 34
+   "Loss: White wins by adjudication: SyzygyTB": 3
+   "No result": 15
+   "Win: Black mates": 59
+   "Win: Black wins by adjudication: SyzygyTB": 5
+   "Win: White mates": 69
+   "Win: White wins by adjudication: SyzygyTB": 4
+Player: Mark_14NNUE_v3
+   "Draw by 3-fold repetition": 45
+   "Draw by adjudication: SyzygyTB": 33
+   "Draw by fifty moves rule": 50
+   "Loss: Black mates": 59
+   "Loss: Black wins by adjudication: SyzygyTB": 5
+   "Loss: White mates": 69
+   "Loss: White wins by adjudication: SyzygyTB": 4
+   "No result": 15
+   "Win: Black mates": 30
+   "Win: Black wins by adjudication: SyzygyTB": 3
+   "Win: White mates": 34
+   "Win: White wins by adjudication: SyzygyTB": 3
+Finished match
+
+Mark_15NNUE256_v5.1 (same as v5 but with network trained in different trainer)
+
+The following is the result from SPRT with Mark_15NNUE256_v5
+
+Score of Mark_15NNUE256_v5.1 vs Mark_15NNUE256_v5: 423 - 346 - 628  [0.528] 1397
+...      Mark_15NNUE256_v5.1 playing White: 253 - 124 - 321  [0.592] 698
+...      Mark_15NNUE256_v5.1 playing Black: 170 - 222 - 307  [0.463] 699
+...      White vs Black: 475 - 294 - 628  [0.565] 1397
+Elo difference: 19.2 +/- 13.5, LOS: 99.7 %, DrawRatio: 45.0 %
+SPRT: llr 2.98 (101.3%), lbound -2.94, ubound 2.94 - H1 was accepted
+
+Player: Mark_15NNUE256_v5.1
+   "Draw by 3-fold repetition": 248
+   "Draw by adjudication: SyzygyTB": 155
+   "Draw by fifty moves rule": 225
+   "Loss: Black mates": 117
+   "Loss: Black wins by adjudication: SyzygyTB": 7
+   "Loss: White mates": 205
+   "Loss: White wins by adjudication: SyzygyTB": 17
+   "No result": 15
+   "Win: Black mates": 161
+   "Win: Black wins by adjudication: SyzygyTB": 9
+   "Win: White mates": 236
+   "Win: White wins by adjudication: SyzygyTB": 17
+Player: Mark_15NNUE256_v5
+   "Draw by 3-fold repetition": 248
+   "Draw by adjudication: SyzygyTB": 155
+   "Draw by fifty moves rule": 225
+   "Loss: Black mates": 161
+   "Loss: Black wins by adjudication: SyzygyTB": 9
+   "Loss: White mates": 236
+   "Loss: White wins by adjudication: SyzygyTB": 17
+   "No result": 15
+   "Win: Black mates": 117
+   "Win: Black wins by adjudication: SyzygyTB": 7
+   "Win: White mates": 205
+   "Win: White wins by adjudication: SyzygyTB": 17
+Finished match
