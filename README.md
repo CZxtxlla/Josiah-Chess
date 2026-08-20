@@ -9,7 +9,6 @@ Josiah is a C chess engine with bitboard move generation, NNUE evaluation, UCI s
 - UCI protocol support for chess GUIs
 - Quantized NNUE evaluation
 - Optional Syzygy tablebase probing
-- Opening book support
 
 ## Building
 
@@ -63,7 +62,7 @@ quit
 
 ## Notes
 
-- The NNUE loader expects the quantized model `nnue/768_quant_9_18_50_1024.nnue`.
+- The NNUE loader expects the quantized model `nnue/768_quant_50_256_v5.1.nnue`.
 - Syzygy tablebases are optional and only used after the UCI `SyzygyPath` option is set.
 - If you move the binary outside the build tree, keep the `nnue/` directory next to it otherwise the engine will crash.
 
@@ -92,10 +91,10 @@ Obviously the chess programming wiki but definitely also for the nnue stuff the 
 - [UCI Protocol Specification](https://gist.github.com/DOBRO/2592c6dad754ba67e6dcaec8c90165bf)
 - [Bitboards](https://www.chessprogramming.org/Bitboards)
 - [Alpha-Beta Pruning](https://www.chessprogramming.org/Alpha-Beta)
-- [NNUE Evaluation](https://official-stockfish.github.io/docs/nnue-pytorch-wiki/docs/nnue.html)
+- [NNUE Evaluation](https://official-stockfish.github.io/docs/nnue-pytorch-wiki/docs/nnue.html) - Not so much useful as interesting, a more useful resource would be the docs for the nnue trainer [Bullet](https://github.com/jw1912/bullet).
 
 Additionally llms are very useful tools for understanding some of the more difficult concepts (like the nnue or alpha beta optimizations).
 
 ---
 
-**Last Updated**: 2026-07-08
+**Last Updated**: 2026-08-20
