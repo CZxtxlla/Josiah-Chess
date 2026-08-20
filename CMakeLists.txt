@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(JosiahChessEngine VERSION 10.0 LANGUAGES C)
+project(JosiahChessEngine VERSION 15.1 LANGUAGES C)
 
 # Set C standard
 set(CMAKE_C_STANDARD 11)
@@ -26,7 +26,7 @@ else()
 endif()
 
 # Define version
-set(ENGINE_VERSION "10.0")
+set(ENGINE_VERSION "15.1")
 add_compile_definitions(ENGINE_VERSION="${ENGINE_VERSION}")
 
 # Core executable target
@@ -71,8 +71,8 @@ set_target_properties(josiah_engine PROPERTIES
 add_custom_command(TARGET josiah_engine POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/bin/nnue"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/nnue/768_quant_9_18_50_1024.nnue"
-        "${CMAKE_BINARY_DIR}/bin/nnue/768_quant_9_18_50_1024.nnue"
+        "${CMAKE_SOURCE_DIR}/nnue/768_quant_50_256_v5.1.nnue"
+        "${CMAKE_BINARY_DIR}/bin/nnue/768_quant_50_256_v5.1.nnue"
     COMMENT "Copying NNUE model to build directory..."
 )
 
@@ -82,14 +82,6 @@ add_custom_command(TARGET josiah_engine POST_BUILD
         "${CMAKE_SOURCE_DIR}/book.txt"
         "${CMAKE_BINARY_DIR}/bin/book.txt"
     COMMENT "Copying opening book to build directory..."
-)
-
-# Copy openings file to build directory
-add_custom_command(TARGET josiah_engine POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/UHO_4060_v3.epd"
-        "${CMAKE_BINARY_DIR}/bin/UHO_4060_v3.epd"
-    COMMENT "Copying openings file to build directory..."
 )
 
 
